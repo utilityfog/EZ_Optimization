@@ -36,7 +36,7 @@ This document **replaces CRRA** with **Epstein–Zin (EZ)** recursive preference
 ### 1.3 Portfolio, turnover, transaction cost
 - Risky-asset weights (action): $\(w_t \in \Delta^n\)$ (simplex, nonnegative, $\(\sum_i w_t[i]=1\)$).  
 - Implicit cash weight: $\(w_{\text{cash},t} := 1 - \sum_{i=1}^n w_t[i]\)$ (nonnegative by construction). \mathrm{turnover}_t := 
-- Turnover: $\(\mathrm{turnover}_t := w_{t} - w_{t-1} {1}\)$.
+- Turnover: $\(\mathrm{turnover}_t := w_{t} - w_{t-1}\)$.
 - Turnover: $\(\mathrm{turnover}_t := \lVert w_{t} - w_{t-1} \rVert_{1}\)$.
 - Transaction-cost coefficient: $\(\kappa \ge 0\)$.
 - Dollar cost: $\(\mathrm{TC}_t := \kappa \cdot W_t \cdot \mathrm{turnover}_t\)$ (paid immediately at $\(t\)$).
