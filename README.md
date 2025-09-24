@@ -22,37 +22,39 @@ This document **replaces CRRA** with **Epstein–Zin (EZ)** recursive preference
 
 ## 1) CORE DEFINITIONS (TIME, DATA, WEALTH, CONSUMPTION, BUDGET)
 ### 1.1 Time and assets
-- Discrete time $\(t = 0,1,2,\ldots,T-1\)$ (episode length \(T\)).  
-- Number of risky assets \(n \ge 1\).
-- Market data (known up to \(t\) when acting):
-  - Risky **gross** returns: \(R[t] \in \mathbb{R}^n\) (e.g., \(1.01 = +1\%\)).
-  - Risk-free **gross** return: \(R_f[t] \in \mathbb{R}\).
+- Discrete time $\(t = 0,1,2,\ldots,T-1\)$ (episode length $\(T\)$).  
+- Number of risky assets $\(n \ge 1\)$.
+- Market data (known up to $\(t\)$ when acting):
+  - Risky **gross** returns: $\(R[t] \in \mathbb{R}^n\)$ (e.g., $\(1.01 = +1\%\)$).
+  - Risk-free **gross** return: $\(R_f[t] \in \mathbb{R}\)$.
 
 ### 1.2 Wealth, consumption, normalization
-- Wealth at start of step \(t\): \(W_t > 0\).
-- Consumption fraction (action): \(c_t \in (0,1)\); **dollar consumption** \(C_t := c_t \cdot W_t\).
-- Running max wealth \(M_t := \max_{0\le \tau \le t} W_\tau\); normalized wealth \(\tilde W_t := W_t / M_t \in (0,1]\).
+- Wealth at start of step $\(t\)$: $\(W_t > 0\)$.
+- Consumption fraction (action): $\(c_t \in (0,1)\)$; **dollar consumption** $\(C_t := c_t \cdot W_t\)$.
+- Running max wealth $\(M_t := \max_{0\le \tau \le t} W_\tau\)$; normalized wealth $\(\tilde W_t := W_t / M_t \in (0,1]\)$.
 
 ### 1.3 Portfolio, turnover, transaction cost
-- Risky-asset weights (action): \(w_t \in \Delta^n\) (simplex, nonnegative, \(\sum_i w_t[i]=1\)).  
-- Implicit cash weight: \(w_{\text{cash},t} := 1 - \sum_{i=1}^n w_t[i]\) (nonnegative by construction).
-- Turnover: \(\mathrm{turnover}_t := \lVert w_t - w_{t-1}\rVert_1\).  Transaction-cost coefficient: \(\kappa \ge 0\).
-- Dollar cost: \(\mathrm{TC}_t := \kappa \cdot W_t \cdot \mathrm{turnover}_t\) (paid immediately at \(t\)).
+- Risky-asset weights (action): $\(w_t \in \Delta^n\)$ (simplex, nonnegative, $\(\sum_i w_t[i]=1\)$).  
+- Implicit cash weight: $\(w_{\text{cash},t} := 1 - \sum_{i=1}^n w_t[i]\)$ (nonnegative by construction).
+- Turnover: $\(\mathrm{turnover}_t := \lVert w_t - w_{t-1}\rVert_1\)$.  Transaction-cost coefficient: $\(\kappa \ge 0\)$.
+- Dollar cost: $\(\mathrm{TC}_t := \kappa \cdot W_t \cdot \mathrm{turnover}_t\)$ (paid immediately at $\(t\)$).
 
 ### 1.4 Budget identity (wealth transition)
-Let risky **excess** return \(\tilde R[t+1] := R[t+1] - R_f[t+1]\cdot \mathbf{1}\).
+Let risky **excess** return $\(\tilde R[t+1] := R[t+1] - R_f[t+1]\cdot \mathbf{1}\)$.
 - Gross growth factor:
+$$
 \[
 G_{t+1} := (1 - c_t)\,\big( R_f[t+1] + w_t^{\top} \tilde R[t+1] \big) \;-\; \kappa \, \lVert w_t - w_{t-1}\rVert_1.
 \]
-- Next wealth: \(W_{t+1} := W_t \cdot G_{t+1}\). Safety floors may clip \(G_{t+1}\) to \(\varepsilon_g>0\).
+$$
+- Next wealth: $\(W_{t+1} := W_t \cdot G_{t+1}\)$. Safety floors may clip $\(G_{t+1}\)$ to $\(\varepsilon_g>0\)$.
 
 ---
 
 ## 2) OBSERVATIONS, FEATURES, STATE (BASELINE PIPELINE)
 ### 2.1 Observables at time \(t\)
-- \(W_t\), \(w_{t-1}\), and a causal feature vector \(x_t \in \mathbb{R}^d\) built **only** from data \(\le t\).
-- Standardize \(x_t\) via train-set \((\mu,\sigma)\) to \(\tilde x_t\) (store \(\mu,\sigma\) from training only).
+- $\(W_t\)$, $\(w_{t-1}\)$, and a causal feature vector $\(x_t \in \mathbb{R}^d\)$ built **only** from data $\(\le t\)$.
+- Standardize $\(x_t\)$ via train-set $\((\mu,\sigma)\)$ to $\(\tilde x_t\)$ (store $\(\mu,\sigma\)$ from training only).
 
 ### 2.2 State to networks
 - **State:** \(s_t := \mathrm{concat}\big( \tilde W_t, \tilde x_t, w_{t-1} \big) \in \mathbb{R}^{1+d+n}\) (fixed order).
