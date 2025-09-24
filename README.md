@@ -38,7 +38,7 @@ This document **replaces CRRA** with **Epstein–Zin (EZ)** recursive preference
 - Implicit cash weight: $\(w_{\text{cash},t} := 1 - \sum_{i=1}^n w_t[i]\)$ (nonnegative by construction).
 - Turnover: $ \mathrm{turnover}_t := \lVert w_t - w_{t-1} \rVert_1 $
 - Turnover: $\mathrm{turnover}_t := \lVert w_t - w_{t-1} \rVert_1$.
-- Turnover: $\(\mathrm{turnover} := \lVert w_t - w_{t-1} \rVert_1\)$.
+- Turnover: $\({\mathrm{turnover}}_t := \lVert w_t - w_{t-1} \rVert_1\)$.
 - Transaction-cost coefficient: $\(\kappa \ge 0\)$.
 - Dollar cost: $\(\mathrm{TC}_t := \kappa \cdot W_t \cdot \mathrm{turnover}_t\)$ (paid immediately at $\(t\)$).
 
