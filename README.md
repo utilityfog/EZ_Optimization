@@ -22,7 +22,7 @@ This document **replaces CRRA** with **Epstein–Zin (EZ)** recursive preference
 
 ## 1) CORE DEFINITIONS (TIME, DATA, WEALTH, CONSUMPTION, BUDGET)
 ### 1.1 Time and assets
-- Discrete time $\(t = 0,1,2,\ldots,T-1\)$ (episode length $\(T\)$).  
+- Discrete time $\(t = 0,1,2,\ldots,T-1\)$ (episode length $\( T \)$).  
 - Number of risky assets $\(n \ge 1\)$.
 - Market data (known up to $\(t\)$ when acting):
   - Risky **gross** returns: $\(R[t] \in \mathbb{R}^n\)$ (e.g., $\(1.01 = +1\%\)$).
