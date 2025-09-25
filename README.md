@@ -4,7 +4,7 @@
 ---
 
 ## 0) PURPOSE & SCOPE
-This document **replaces CRRA** with **Epstein–Zin (EZ)** recursive preferences and **adds a Learnable Fractional Differencing (FracDiff) layer** in the feature pipeline, while preserving your **PPO + ICM** training stack and environment mechanics. It is **drop-in**: policy parameterization, buffers, rollout loop, exact log-probabilities, and PPO machinery remain intact. Only the **preference aggregator** (reward/value semantics) and **feature memory module** (FracDiff) change.
+This document **replaces CRRA** with **Epstein–Zin (EZ)** recursive preferences and **adds a Learnable Fractional Differencing (FracDiff) layer** in the feature pipeline, while preserving the **PPO + ICM** training stack and environment mechanics. It is **drop-in**: policy parameterization, buffers, rollout loop, exact log-probabilities, and PPO machinery remain intact. Only the **preference aggregator** (reward/value semantics) and **feature memory module** (FracDiff) change.
 
 **What stays the same (do not touch):**
 - Time/indexing, assets, returns, risk-free, turnover/transaction cost, budget identity.
@@ -74,7 +74,7 @@ Learn a memory depth $\(d_{\text{target}} \in [d_{\min}, d_{\max}]\)$ (e.g., $\(
 - Truncate the kernel to length $\(K\)$ (auto-chosen from $\(d_{\text{eff}}\)$ and a tolerance). Outputs lose the first $\(K\)$ steps.
 
 ### 3.3 State augmentation & alignment
-- Build your usual statistics **from** the FD output (lags, MAs, vol, PCA, cross-sectional transforms).  
+- Build usual statistics **from** the FD output (lags, MAs, vol, PCA, cross-sectional transforms).  
 - **Shift** all time-aligned targets by $\(K\)$ (drop first $\(K\)$ steps) so shapes match.  
 - Optionally append $\(\mathrm{stop\_grad}(d_{\text{target}})\)$ and $\(K\)$ as scalar features so the policy/critic can adapt to memory depth.
 
