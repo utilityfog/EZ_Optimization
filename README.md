@@ -89,30 +89,30 @@ Learn a memory depth $\(d_{\text{target}} \in [d_{\min}, d_{\max}]\)$ (e.g., $\(
 
 ## 4) **Epstein–Zin** Preferences (replace CRRA)
 Let $\(\beta\in(0,1)\)$ be the subjective discount, $\(\gamma>0\)$ risk aversion, $\(\psi>0\)$ intertemporal elasticity (EIS). Define transforms:
-- $\( z(V) := V^{\,1-\frac{1}{\psi}} \)$   (EIS/consumption space)  
-- $\( y(V) := V^{\,1-\gamma} \)$           (risk space)
+- $\( z(V) := V^{1-\frac{1}{\psi}} \)$   (EIS/consumption space)  
+- $\( y(V) := V^{1-\gamma} \)$           (risk space)
 
 ### 4.1 EZ aggregator (Kreps–Porteus form)
 For lifetime utility $\(V_t\)$ and consumption $\(C_t\)$:
 
 $$\(
 \[
-V_t = \Big[(1-\beta)\, C_t^{\,1-\frac{1}{\psi}} + \beta \,\big( \mathbb{E}_t [ V_{t+1}^{\,1-\gamma} ] \big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}} \Big]^{\frac{1}{\,1-\frac{1}{\psi}\,}}.
+V_t = \Big[(1-\beta)C_t^{1-\frac{1}{\psi}} + \beta \big(\mathbb{E}_t [V_{t+1}^{1-\gamma}] \big)^{\frac{1-\frac{1}{\psi}}{1-\gamma}} \Big]^{\frac{1}{1-\frac{1}{\psi}}}.
 \]
 \)$$
 
 ### 4.2 Practical RL parameterization (stable targets)
 We **train in $\(z\)$-space** with a two-head critic predicting $\(\hat z_t \approx z(V_t)\)$ and $\(\hat y_t \approx y(V_t)\)$.  
-- **External (shaped) reward:** $\( r_t^{\mathrm{ext}} := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} \)$.
+- **External (shaped) reward:** $\(r_t^{\mathrm{ext}} := (1-\beta) C_t^{1-\frac{1}{\psi}}\)$.
 - **One-step bootstrap target for $\(z\)$:**
 
 $$\(
 \[
-T^{(z)}_t := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} + \beta \,\Big(\hat y_{t+1}\Big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}}.
+T^{(z)}_t := (1-\beta) C_t^{1-\frac{1}{\psi}} + \beta \Big(\hat y_{t+1}\Big)^{\frac{1-\frac{1}{\psi}}{1-\gamma}}.
 \]
 \)$$
 
-- **Value loss:** $\( L_{\mathrm{value}} := \tfrac{1}{2}\,\big(\hat z_t - T^{(z)}_t\big)^2 \)$.
+- **Value loss:** $\( L_{\mathrm{value}} := \tfrac{1}{2}\big(\hat z_t - T^{(z)}_t\big)^2 \)$.
 - Optional **consistency** regularizer: encourage $\( \hat y_t \approx (\hat z_t)^{\frac{1-\gamma}{1-\frac{1}{\psi}}}\)$ with a small weight.
 
 > **Degeneracies:** $\(\psi\to 1\)$ approaches additive/separable (log-like); $\(\gamma\to 1\)$ reduces risk curvature; recipe reduces toward CRRA smoothly.
@@ -124,7 +124,7 @@ T^{(z)}_t := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} + \beta \,\Big(\hat y_{t+1}\Bi
 **Dimensions and symbols used throughout this section**
 - Number of risky assets: $\(n \ge 1\)$.  Feature dimension: $\(d \ge 1\)$.
 - State at time $\(t\)$: $\(s_t \in \mathbb{R}^{1+d+n}\)$ is the concatenation
-  $\(s_t := \mathrm{concat}\big(\tilde W_t,\ \tilde x_t,\ w_{t-1}\big)\)$,
+  $\(s_t := \mathrm{concat}\big(\tilde W_t, \tilde x_t, w_{t-1}\big)\)$,
   where $\(\tilde W_t = W_t/M_t\)$, $\(\tilde x_t\)$ is the standardized feature vector, and $\(w_{t-1}\in\mathbb{R}^n\)$ is the previous risky-weights vector on the simplex $\(\Delta^n\)$.
 - Consumption fraction (action component): $\(c_t \in (0,1)\)$. Dollar consumption: $\(C_t := c_t W_t\)$.
 - Risky weights (action component): $\(w_t \in \Delta^n = \{u\in\mathbb{R}_{\ge 0}^n:\sum_i u_i=1\}\)$.
@@ -166,8 +166,8 @@ $\(\log \pi_\theta(a_t\mid s_t) := \log p(c_t\mid s_t) + \log p(w_t\mid s_t)\)$.
 
 ### 5.3 Critic $\(g_\psi\)$ (two heads for EZ)
 The critic takes $\(s_t\)$ and outputs two scalars:
-- $\(\hat z_t \approx z(V_t)\)$ with $\(z(V):=V^{\,1-\frac{1}{\psi}}\)$.
-- $\(\hat y_t \approx y(V_t)\)$ with $\(y(V):=V^{\,1-\gamma}\)$.
+- $\(\hat z_t \approx z(V_t)\)$ with $\(z(V):=V^{1-\frac{1}{\psi}}\)$.
+- $\(\hat y_t \approx y(V_t)\)$ with $\(y(V):=V^{1-\gamma}\)$.
 These are used to build the EZ bootstrap target and TD residual below.
 
 ---
@@ -193,7 +193,7 @@ G_{t+1} := (1 - c_t)\big( R_f[t+1] + w_t^{\top} \tilde R[t+1] \big) - \kappa \lV
 **State update**
 - Update running max $\(M_{t+1} := \max(M_t,W_{t+1})\)$.
 - Build next features $\(\tilde x_{t+1}\)$ (post-FracDiff pipeline) and set
-  $\(s_{t+1} := \mathrm{concat}(W_{t+1}/M_{t+1},\ \tilde x_{t+1},\ w_t)\)$.
+  $\(s_{t+1} := \mathrm{concat}(W_{t+1}/M_{t+1}, \tilde x_{t+1}, w_t)\)$.
 
 ---
 
@@ -205,7 +205,7 @@ G_{t+1} := (1 - c_t)\big( R_f[t+1] + w_t^{\top} \tilde R[t+1] \big) - \kappa \lV
 
 $$\(
 \[
-r_t^{\mathrm{ext}} := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}}.
+r_t^{\mathrm{ext}} := (1-\beta)C_t^{1-\frac{1}{\psi}}.
 \]
 \)$$
 
@@ -219,9 +219,9 @@ r_t^{\mathrm{ext}} := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}}.
   - $\(\phi(s_t) := W_{eo}e2 + b_{eo} \in \mathbb{R}^m\)$.
 - **Action embedding** for continuous $\(a_t=(c_t,w_t)\)$:
   - $\(y_c := \mathrm{logit}(c_t)=\log(\tfrac{c_t}{1-c_t})\)$.
-  - $\(\psi(a_t) := \mathrm{concat}(y_c,\ w_t) \in \mathbb{R}^{1+n}\)$.
+  - $\(\psi(a_t) := \mathrm{concat}(y_c, w_t) \in \mathbb{R}^{1+n}\)$.
 - **Forward model** $\(f_\omega:\mathbb{R}^m\times\mathbb{R}^{1+n}\to\mathbb{R}^m\)$:
-  - $\(u1 := \mathrm{GELU}\big(W_{f1}\,\mathrm{concat}(\phi(s_t),\psi(a_t))+b_{f1}\big)\)$, $\(W_{f1}\in\mathbb{R}^{F\times(m+1+n)}\)$.
+  - $\(u1 := \mathrm{GELU}\big(W_{f1}\mathrm{concat}(\phi(s_t),\psi(a_t))+b_{f1}\big)\)$, $\(W_{f1}\in\mathbb{R}^{F\times(m+1+n)}\)$.
   - $\(u2 := \mathrm{GELU}(W_{f2}u1+b_{f2})\)$, $\(W_{f2}\in\mathbb{R}^{F\times F}\)$.
   - $\(\hat\phi_{t+1} := f(\phi(s_t),a_t) := W_{fo}u2+b_{fo} \in \mathbb{R}^m\)$.
 - **(Optional) Inverse model** $\(g_\omega:\mathbb{R}^m\times\mathbb{R}^m\to\)$ action params:
@@ -234,7 +234,7 @@ r_t^{\mathrm{ext}} := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}}.
 
 $$\(
 \[
-r_t^{\mathrm{int}} := \eta \, \big\lVert\, \phi_{t+1} - \hat \phi_{t+1} \,\big\rVert_2^2.
+r_t^{\mathrm{int}} := \eta \big\lVert \phi_{t+1} - \hat \phi_{t+1} \big\rVert_2^2.
 \]
 \)$$
 
@@ -256,7 +256,7 @@ $\(r_t := r_t^{\mathrm{ext}} + r_t^{\mathrm{int}}\)$.
 
 $$\(
 \[
-T^{(z)}_t = (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} + \beta \,\Big(\hat y_{t+1}\Big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}}.
+T^{(z)}_t = (1-\beta) C_t^{1-\frac{1}{\psi}} + \beta \Big(\hat y_{t+1}\Big)^{\frac{1-\frac{1}{\psi}}{1-\gamma}}.
 \]
 \)$$
 
@@ -280,7 +280,7 @@ $$\(
 
 $$\(
 \[
-L_{\mathrm{PPO}} := -\,\mathbb{E}_t\Big[\min \big(r_t(\theta)\,\tilde A_t,\ \mathrm{clip}(r_t(\theta),1-\varepsilon,1+\varepsilon)\,\tilde A_t\big)\Big].
+L_{\mathrm{PPO}} := -\mathbb{E}_t\Big[\min \big(r_t(\theta)\tilde A_t, \mathrm{clip}(r_t(\theta),1-\varepsilon,1+\varepsilon)\tilde A_t\big)\Big].
 \]
 \)$$
 
@@ -293,7 +293,7 @@ L_{\mathrm{PPO}} := -\,\mathbb{E}_t\Big[\min \big(r_t(\theta)\,\tilde A_t,\ \mat
 
 $$\(
 \[
-H_c := \tfrac{1}{2}\,\log\big(2\pi e\,\sigma_c^2\big).
+H_c := \tfrac{1}{2}\log\big(2\pi e\sigma_c^2\big).
 \]
 \)$$
 
@@ -336,7 +336,7 @@ L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{
 
     $$\(
     \[
-    \beta_{\mathrm{ent}} \leftarrow \mathrm{clip}\Big(\beta_{\mathrm{ent}}\cdot \exp\big(\tau\,[\,H_{\text{target}}-(H_c{+}H_w)\,]\big),\ \beta_{\min},\ \beta_{\max}\Big),
+    \beta_{\mathrm{ent}} \leftarrow \mathrm{clip}\Big(\beta_{\mathrm{ent}}\cdot \exp\big(\tau[H_{\text{target}}-(H_c{+}H_w)]\big) \beta_{\min} \beta_{\max}\Big),
     \]
     \)$$
 
@@ -346,7 +346,7 @@ L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{
 
     $$\(
     \[
-    c_v \leftarrow \mathrm{clip}\Bigg(\frac{\mathrm{RMS}[U_t]}{\mathrm{RMS}[V_t]+\epsilon},\ c_{v,\min},\ c_{v,\max}\Bigg),
+    c_v \leftarrow \mathrm{clip}\Bigg(\frac{\mathrm{RMS}[U_t]}{\mathrm{RMS}[V_t]+\epsilon}, c_{v,\min}, c_{v,\max}\Bigg),
     \]
     \)$$
 
@@ -358,7 +358,7 @@ L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{
 
     $$\(
     \[
-    c_{\mathrm{icm}} \leftarrow \mathrm{clip}\Big(c_{\mathrm{icm}}\cdot \exp(\rho\,[\,p_{\text{int}}-q\,]),\ c_{\mathrm{icm},\min},\ c_{\mathrm{icm},\max}\Big),
+    c_{\mathrm{icm}} \leftarrow \mathrm{clip}\Big(c_{\mathrm{icm}}\cdot \exp(\rho[p_{\text{int}}-q]), c_{\mathrm{icm},\min}, c_{\mathrm{icm},\max}\Big),
     \]
     \)$$
 
@@ -383,7 +383,7 @@ L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{
 
 ### 9.4 Evaluation (deterministic)
 - Use $\(c_t := \sigma(\mu_c)\)$, $\(w_t := \alpha/\sum_i \alpha_i\)$.  
-- Recover EZ value via inverse transform for reporting: $\(\hat V_t = \hat z_t^{\,1/(1-\frac{1}{\psi})}\)$.  
+- Recover EZ value via inverse transform for reporting: $\(\hat V_t = \hat z_t^{1/(1-\frac{1}{\psi})}\)$.  
 - Report PnL, CAGR, MDD, Calmar, turnover, and $\(\hat V_0\)$.
 
 ---
@@ -400,7 +400,7 @@ L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{
 ## 11) MINIMAL MIGRATION CHECKLIST
 - [ ] Expose $\(\gamma, \psi, \beta\)$ in config; leave PPO hypers unchanged initially.  
 - [ ] Critic: switch to **two heads** $\((\hat z, \hat y)\)$; keep shared backbone.  
-- [ ] Reward pipe: compute $\(r_t^{\mathrm{ext}}=(1-\beta)C^{\,1-1/\psi}\)$; add curiosity as before → $\(r_t\)$.  
+- [ ] Reward pipe: compute $\(r_t^{\mathrm{ext}}=(1-\beta)C^{1-1/\psi}\)$; add curiosity as before → $\(r_t\)$.  
 - [ ] Targets: build $\(T^{(z)}\)$ with next-state $\(\hat y\)$; compute $\(\delta^{\mathrm{EZ}}\)$ and GAE in $\(z\)$-space.  
 - [ ] Insert **Learnable FracDiff** before feature builder; shift by $\(K\)$.  
 - [ ] Log $\(d_{\text{target}}, K\)$, ACF diagnostics, and $\(\hat z,\hat y\)$ summaries.
@@ -410,14 +410,14 @@ L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{
 ## 12) GLOSSARY
 - $\(C_t\)$: dollar consumption; $\(W_t\)$: wealth; $\(c_t\)$: consumption rate.  
 - $\(\gamma\)$: risk aversion; $\(\psi\)$: EIS; $\(\beta\)$: discount.  
-- $\(V_t\)$: EZ lifetime utility; $\(z(V)=V^{\,1-1/\psi}\)$; $\(y(V)=V^{\,1-\gamma}\)$.  
+- $\(V_t\)$: EZ lifetime utility; $\(z(V)=V^{1-1/\psi}\)$; $\(y(V)=V^{1-\gamma}\)$.  
 - $\(d_{\text{target}}\)$: fracdiff memory parameter; $\(K\)$: kernel truncation length.  
 - ICM: Intrinsic Curiosity Module; $\(\phi\)$: encoder; $\(f\)$: forward model.
 
 ---
 
 ## 13) TL;DR (one-screen summary)
-- **Objective change:** CRRA → **Epstein–Zin** with a two-head critic $\((\hat z, \hat y)\)$, shaped external reward $\((1-\beta)C^{\,1-1/\psi}\)$, and a one-step $\(z\)$-target using $\(\hat y_{t+1}\)$.  
+- **Objective change:** CRRA → **Epstein–Zin** with a two-head critic $\((\hat z, \hat y)\)$, shaped external reward $\((1-\beta)C^{1-1/\psi}\)$, and a one-step $\(z\)$-target using $\(\hat y_{t+1}\)$.  
 - **Feature change:** Insert **Learnable FracDiff** over returns; align time by kernel length $\(K\)$.  
 - **PPO/ICM:** identical machinery; only the value target and reward semantics change.  
 - **Eval:** deterministic actions; report $\(\hat V_0\)$ via inverse transform and standard trading metrics.
