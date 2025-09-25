@@ -47,7 +47,7 @@ $$\(
 \[
 G_{t+1} := (1 - c_t)\,\big( R_f[t+1] + w_t^{\top} \tilde R[t+1] \big) \;-\; \kappa \, \lVert w_t - w_{t-1}\rVert_1.
 \]
-$$\)
+\)$$
 - Next wealth: $\(W_{t+1} := W_t \cdot G_{t+1}\)$. Safety floors may clip $\(G_{t+1}\)$ to $\(\varepsilon_g>0\)$.
 
 ---
