@@ -34,7 +34,7 @@ This document **replaces CRRA** with **Epstein–Zin (EZ)** recursive preference
 - Running max wealth $\(M_t := \max_{0\le \tau \le t} W_\tau\)$; normalized wealth $\(\tilde W_t := W_t / M_t \in (0,1]\)$.
 
 ### 1.3 Portfolio, turnover, transaction cost
-- Risky-asset weights (action): $\(w_t \in \Delta^n\)$ (simplex, nonnegative, $\(\sum_{i=1}^n w_t[i] = 1\)$).  
+- Risky-asset weights (action): $\(w_t \in \Delta^n\)$ (simplex, nonnegative, $\(\sum_{i=1}^n w_t[i] = 1 \)$ ).  
 - Implicit cash weight: $\(w_{\text{cash},t} := 1 - \sum_{i=1}^n w_t[i]\)$ (nonnegative by construction).
 - Turnover: $\(\mathrm{turnover_t} := \lVert w_t - w_{t-1} \rVert_1\)$.
 - Transaction-cost coefficient: $\(\kappa \ge 0\)$.
