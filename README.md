@@ -94,12 +94,11 @@ Let $\(\beta\in(0,1)\)$ be the subjective discount, $\(\gamma>0\)$ risk aversion
 
 ### 4.1 EZ aggregator (Kreps–Porteus form)
 For lifetime utility $\(V_t\)$ and consumption $\(C_t\)$:
-
 $$\(
 \[
 V_t \;=\; \Big[(1-\beta)\, C_t^{\,1-\frac{1}{\psi}} \;+\; \beta \,\big( \mathbb{E}_t [ V_{t+1}^{\,1-\gamma} ] \big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}} \Big]^{\frac{1}{\,1-\frac{1}{\psi}\,}}.
 \]
-$$\)
+\)$$
 
 ### 4.2 Practical RL parameterization (stable targets)
 We **train in $\(z\)$-space** with a two-head critic predicting $\(\hat z_t \approx z(V_t)\)$ and $\(\hat y_t \approx y(V_t)\)$.  
