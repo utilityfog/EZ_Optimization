@@ -175,7 +175,7 @@ These are used to build the EZ bootstrap target and TD residual below.
 ## 6) ENVIRONMENT STEP (FULL SEQUENCE)
 
 **Market data and costs**
-- Risk-free gross return: $\(R_f[t] \in\ mathbb{R}_{>0}\)$. Risky gross returns: $\(R[t] \in\ mathbb{R}_{>0}^n\)$.
+- Risk-free gross return: $\(R_f[t] \in \mathbb{R}_{>0}\)$. Risky gross returns: $\(R[t] \in \mathbb{R}_{>0}^n\)$.
 - Excess return: $\(\tilde R[t] := R[t] - R_f[t]\mathbf{1}\)$.
 - Turnover and cost coefficient: turnover $\(\|w_t-w_{t-1}\|_1\)$, cost $\(\kappa\ge 0\)$.
 
