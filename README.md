@@ -38,7 +38,7 @@ This document **replaces CRRA** with **Epstein–Zin (EZ)** recursive preference
 - Implicit cash weight: $\(w_{\text{cash},t} := 1 - \sum_{i=1}^n w_t[i]\)$ (nonnegative by construction).
 - Turnover: $\(\mathrm{turnover_t} := \lVert w_t - w_{t-1} \rVert_1\)$.
 - Transaction-cost coefficient: $\(\kappa \ge 0\)$.
-- Dollar cost: $\(\mathrm{TC}_t := \kappa \cdot W_t \cdot \mathrm{turnover}_t\)$ (paid immediately at $\(t\)$).
+- Dollar cost: $\(\mathrm{TC}_t := \kappa \cdot W_t \cdot \mathrm{turnover}_t\)$ (paid immediately at $\(t\)$ ).
 
 ### 1.4 Budget identity (wealth transition)
 Let risky **excess** return $\(\tilde R[t+1] := R[t+1] - R_f[t+1]\cdot \mathbf{1}\)$.
@@ -211,7 +211,7 @@ $$\(
 \)$$
 
 Intuition: $\(T^{(z)}\)$ already contains the $\(\beta\)$-weighted continuation; $\(r_t^{\mathrm{ext}}\)$ is the immediate $\(z\)$-flow.  
-- Compute **GAE($\(\lambda\)$)** on $\(\delta_t^{\mathrm{EZ}}\)$ exactly as baseline GAE (backward recursion).  
+- Compute **GAE( $\(\lambda\)$ )** on $\(\delta_t^{\mathrm{EZ}}\)$ exactly as baseline GAE (backward recursion).  
 - Advantages are normalized per batch and used in PPO unchanged.
 
 ### 8.2 Losses
