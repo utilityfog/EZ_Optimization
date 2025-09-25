@@ -223,9 +223,117 @@ Intuition: $\(T^{(z)}\)$ already contains the $\(\beta\)$-weighted continuation;
 
 $$\(
 \[
-L_{\mathrm{total}} \;=\; L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{ent}} L_{\mathrm{ent}} + c_{\mathrm{icm}} L_{\mathrm{ICM}}.
+L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{ent}} L_{\mathrm{ent}} + c_{\mathrm{icm}} L_{\mathrm{ICM}}.
 \]
 \)$$
+
+---
+
+## 7) REWARDS (EXTERNAL EZ FLOW, INTRINSIC ICM)
+### 7.1 External reward (EZ flow term in $\(z\)$-space)
+
+$$\(
+\[
+r_t^{\mathrm{ext}} := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}}.
+\]
+\)$$
+
+### 7.2 Intrinsic curiosity reward (ICM)
+Encoders and models (as in baseline):
+- State encoder $\(\phi(s) \in \mathbb{R}^m\)$; forward model $\(f(\phi(s_t), \psi(a_t)) \to \hat \phi_{t+1}\)$; (optional) inverse model for stability.
+- Action embedding $\(\psi(a_t) := \mathrm{concat}\big( \mathrm{logit}(c_t), w_t \big)\)$.
+- Intrinsic reward:
+
+$$\(
+\[
+r_t^{\mathrm{int}} := \eta \, \big\lVert\, \phi(s_{t+1}) - \hat \phi_{t+1} \,\big\rVert_2^2.
+\]
+\)$$
+
+- ICM losses: $\(L_{\mathrm{fwd}} = \lVert\cdot\rVert_2^2\)$, $\(L_{\mathrm{inv}} = -\big[ \log \mathcal{N}(y_c; \hat\mu_c, \hat\sigma_c^2) + \log \mathrm{Dir}(w_t; \hat\alpha) \big]\)$ (optional), $\(L_{\mathrm{ICM}} = L_{\mathrm{fwd}} + \lambda_{\mathrm{inv}} L_{\mathrm{inv}}\)$.
+
+### 7.3 Total reward
+$\(r_t := r_t^{\mathrm{ext}} + r_t^{\mathrm{int}}\)$ (what enters the advantage computation).
+
+---
+
+## 8) ADVANTAGES, TARGETS, AND LOSSES (EZ version)
+### 8.1 EZ TD residual and GAE (in $\(z\)$-space)
+- Build bootstrap target for $\(z\)$ using next-state head:
+
+$$\(
+\[
+T^{(z)}_t \;=\; (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} \;+\; \beta \,\Big(\hat y_{t+1}\Big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}}.
+\]
+\)$$
+
+- Define TD residual:
+
+$$\(
+\[
+\delta_t^{\mathrm{EZ}} \;:=\; r_t \;+\; \beta\big(T^{(z)}_t - r_t^{\mathrm{ext}}\big) \;-\; \hat z_t.
+\]
+\)$$
+
+Intuition: $\(T^{(z)}\)$ already contains the $\(\beta\)$-weighted continuation; $\(r_t^{\mathrm{ext}}\)$ is the immediate $\(z\)$-flow.  
+- Compute **GAE( $\(\lambda\)$ )** on $\(\delta_t^{\mathrm{EZ}}\)$ exactly as baseline GAE (backward recursion).  
+- Advantages are normalized per batch and used in PPO unchanged.
+
+### 8.2 Losses
+- **Policy (clipped PPO):** exactly baseline with advantages from §8.1.  
+- **Value (z-head):** $\( L_{\mathrm{value}} = \tfrac{1}{2}(\hat z_t - T^{(z)}_t)^2 \)$.  
+- **Entropy:** define the entropy loss (minimized) as
+  - For the **consumption** squashed-Gaussian head, let $\(y_c \sim \mathcal{N}(\mu_c,\sigma_c^2)\)$ be the pre-squash variable. Use the Normal entropy
+    $$\(
+    \[
+    H_c \;:=\; \tfrac{1}{2}\,\log\!\big(2\pi e\,\sigma_c^2\big).
+    \]
+    \)$$
+  - For the **risky-weights** Dirichlet head with concentration $\,\alpha \in \mathbb{R}_{>0}^n\,$,
+    $$\(
+    \[
+    H_w \;:=\; \log \Gamma\!\Big(\textstyle\sum_i \alpha_i\Big) \;-\; \sum_i \log \Gamma(\alpha_i) \;+\; \Big(\textstyle\sum_i (\alpha_i-1)\Big)\psi_0\!\Big(\textstyle\sum_i \alpha_i\Big) \;-\; \sum_i (\alpha_i-1)\psi_0(\alpha_i),
+    \]
+    \)$$
+    where $\(\psi_0\)$ is the digamma function.
+  - **Entropy loss** (negative total entropy, to be minimized):
+    $$\(
+    \[
+    L_{\mathrm{ent}} \;:=\; -\,\big( H_c + H_w \big).
+    \]
+    \)$$
+- **ICM:** unchanged.  
+- **Total:**  
+
+$$\(
+\[
+L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{ent}} L_{\mathrm{ent}} + c_{\mathrm{icm}} L_{\mathrm{ICM}}.
+\]
+\)$$
+
+**Coefficient selection (how to set \(c_v\), \(\beta_{\mathrm{ent}}\), \(c_{\mathrm{icm}}\)):**
+- **Practical defaults (good starting point):** $\(c_v=1.0\)$, $\( \beta_{\mathrm{ent}} \in [10^{-4},10^{-3}] \)$, $\( c_{\mathrm{icm}} \in [0.1,1.0] \)$.
+- **Scale matching (recommended automatic tuning):**
+  1. Maintain **target entropy** \(H_{\text{target}}\) for actions (e.g., per-dimension pre-squash Normal entropy \(\approx -0.5\), and Dirichlet entropy \(\approx\) 10–20% of its maximum for your \(n\)). Update \(\beta_{\mathrm{ent}}\) each epoch to push \(H_c{+}H_w \to H_{\text{target}}\):
+     $$\(
+     \[
+     \beta_{\mathrm{ent}} \leftarrow \mathrm{clip}\!\Big(\beta_{\mathrm{ent}} \cdot \exp\big(\tau\,[\,H_{\text{target}} - (H_c{+}H_w)\,]\big),\,\beta_{\min},\,\beta_{\max}\Big),
+     \]
+     \)$$
+     with a small gain \( \tau \in [10^{-3},10^{-2}] \).
+  2. Match the **value loss** scale to the policy loss using running RMS (stop-grad on denominators):
+     $$\(
+     \[
+     c_v \leftarrow \mathrm{clip}\!\Bigg(\frac{\mathrm{RMS}\big[\min(r_t \tilde A_t,\ \mathrm{clip}(r_t,1-\varepsilon,1+\varepsilon)\tilde A_t)\big]}{\mathrm{RMS}\big[\tfrac{1}{2}(\hat z_t - T^{(z)}_t)^2\big]},\ c_{v,\min},\ c_{v,\max}\Bigg).
+     \]
+     \)$$
+  3. Keep **intrinsic reward influence** at a target fraction \(p_{\text{int}}\in[0,0.3]\) of the total batch reward by adapting \(c_{\mathrm{icm}}\) (or \(\eta\)) so that
+     $$\(
+     \[
+     \frac{\sum_t r_t^{\mathrm{int}}}{\sum_t (r_t^{\mathrm{ext}}+r_t^{\mathrm{int}})} \;\approx\; p_{\text{int}}.
+     \]
+     \)$$
+     A simple proportional controller on \(c_{\mathrm{icm}}\) (or on \(\eta\)) each epoch achieves this without changing logic elsewhere.
 
 ---
 
