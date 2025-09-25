@@ -157,7 +157,7 @@ At each time $\(t\)$:
 1. Build state $\(s_t = \mathrm{concat}(\tilde W_t, \tilde x_t, w_{t-1})\)$ (after FD alignment, see §3.3).
 2. Actor forward: get $\(\mu_c, \sigma_c, \alpha\)$ → sample $\(c_t, w_t\)$; compute and **store** $\(\log \pi_{\theta_{\text{old}}}(a_t\mid s_t)\)$ exactly (§5.2).
 3. Consumption: $\(C_t := c_t \cdot W_t\)$.
-4. Observe $\(R[t+1], R_f[t+1]\)$; turnover $\(\lVert w_t - w_{t-1}\rVert_1\)$; cost $\(\mathrm{TC}_t := \kappa W_t \lVert w_t - w_{t-1}\rVert_1\)$.
+4. Observe $\(R[t+1], R_f[t+1]\)$; turnover $\(\lVert w_t - w_{t-1}\rVert_1\)$; cost $\(\mathrm{TC_t} := \kappa W_t \lVert w_t - w_{t-1}\rVert_1\)$.
 5. Wealth update via §1.4 → $\(W_{t+1}\)$; update max $\(M_{t+1}\)$.
 6. Build next features $\(x_{t+1}\)$ (post-FracDiff), standardize $\(\to \tilde x_{t+1}\)$.
 7. Next state: $\(s_{t+1} := \mathrm{concat}(W_{t+1}/M_{t+1}, \tilde x_{t+1}, w_t)\)$.
