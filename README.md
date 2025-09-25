@@ -105,11 +105,13 @@ V_t \;=\; \Big[(1-\beta)\, C_t^{\,1-\frac{1}{\psi}} \;+\; \beta \,\big( \mathbb{
 We **train in $\(z\)$-space** with a two-head critic predicting $\(\hat z_t \approx z(V_t)\)$ and $\(\hat y_t \approx y(V_t)\)$.  
 - **External (shaped) reward:** $\( r_t^{\mathrm{ext}} := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} \)$.
 - **One-step bootstrap target for $\(z\)$:**
+
 $$\(
 \[
 T^{(z)}_t \;:=\; (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} \;+\; \beta \,\Big(\hat y_{t+1}\Big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}}.
 \]
-$$\)
+\)$$
+
 - **Value loss:** $\( L_{\mathrm{value}} := \tfrac{1}{2}\,\big(\hat z_t - T^{(z)}_t\big)^2 \)$.
 - Optional **consistency** regularizer: encourage $\( \hat y_t \approx (\hat z_t)^{\frac{1-\gamma}{1-\frac{1}{\psi}}}\)$ with a small weight.
 
@@ -127,17 +129,21 @@ $$\)
 
 ### 5.2 Exact log-probabilities (for PPO ratio)
 - For consumption (squashed Gaussian): with $\(y_c = \mathrm{logit}(c_t)\)$ and Jacobian $\(\left|\frac{dy}{dc}\right| = \frac{1}{c_t (1-c_t)}\)$:
+
 $$\(
 \[
 \log p(c_t\mid s_t) \;=\; \log \mathcal{N}(y_c; \mu_c, \sigma_c^2) \;-\; \log\!\big( c_t(1-c_t) \big).
 \]
-$$\)
+\)$$
+
 - For weights (Dirichlet):
+
 $$\(
 \[
 \log p(w_t\mid s_t) \;=\; \log \Gamma\!\Big(\textstyle\sum_i \alpha_i\Big) \;-\; \sum_i \log \Gamma(\alpha_i) \;+\; \sum_i (\alpha_i-1)\log w_t[i].
 \]
-$$\)
+\)$$
+
 - Joint: $\(\log \pi_\theta(a_t\mid s_t) = \log p(c_t\mid s_t) + \log p(w_t\mid s_t)\)$ (store at collection).
 
 ### 5.3 Critic \(g_\psi\) (**two heads for EZ**)
@@ -160,22 +166,25 @@ At each time $\(t\)$:
 
 ## 7) REWARDS (EXTERNAL EZ FLOW, INTRINSIC ICM)
 ### 7.1 External reward (EZ flow term in $\(z\)$-space)
+
 $$\(
 \[
 r_t^{\mathrm{ext}} := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}}.
 \]
-$$\)
+\)$$
 
 ### 7.2 Intrinsic curiosity reward (ICM)
 Encoders and models (as in baseline):
 - State encoder $\(\phi(s) \in \mathbb{R}^m\)$; forward model $\(f(\phi(s_t), \psi(a_t)) \to \hat \phi_{t+1}\)$; (optional) inverse model for stability.
 - Action embedding $\(\psi(a_t) := \mathrm{concat}\big( \mathrm{logit}(c_t), w_t \big)\)$.
 - Intrinsic reward:
+
 $$\(
 \[
 r_t^{\mathrm{int}} := \eta \, \big\lVert\, \phi(s_{t+1}) - \hat \phi_{t+1} \,\big\rVert_2^2.
 \]
-$$\)
+\)$$
+
 - ICM losses: $\(L_{\mathrm{fwd}} = \lVert\cdot\rVert_2^2\)$, $\(L_{\mathrm{inv}} = -\big[ \log \mathcal{N}(y_c; \hat\mu_c, \hat\sigma_c^2) + \log \mathrm{Dir}(w_t; \hat\alpha) \big]\)$ (optional), $\(L_{\mathrm{ICM}} = L_{\mathrm{fwd}} + \lambda_{\mathrm{inv}} L_{\mathrm{inv}}\)$.
 
 ### 7.3 Total reward
@@ -186,17 +195,21 @@ $\(r_t := r_t^{\mathrm{ext}} + r_t^{\mathrm{int}}\)$ (what enters the advantage 
 ## 8) ADVANTAGES, TARGETS, AND LOSSES (EZ version)
 ### 8.1 EZ TD residual and GAE (in $\(z\)$-space)
 - Build bootstrap target for $\(z\)$ using next-state head:
+
 $$\(
 \[
 T^{(z)}_t \;=\; (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} \;+\; \beta \,\Big(\hat y_{t+1}\Big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}}.
 \]
-$$\)
+\)$$
+
 - Define TD residual:
+
 $$\(
 \[
 \delta_t^{\mathrm{EZ}} \;:=\; r_t \;+\; \beta\big(T^{(z)}_t - r_t^{\mathrm{ext}}\big) \;-\; \hat z_t.
 \]
-$$\)
+\)$$
+
 Intuition: $\(T^{(z)}\)$ already contains the $\(\beta\)$-weighted continuation; $\(r_t^{\mathrm{ext}}\)$ is the immediate $\(z\)$-flow.  
 - Compute **GAE($\(\lambda\)$)** on $\(\delta_t^{\mathrm{EZ}}\)$ exactly as baseline GAE (backward recursion).  
 - Advantages are normalized per batch and used in PPO unchanged.
@@ -207,11 +220,12 @@ Intuition: $\(T^{(z)}\)$ already contains the $\(\beta\)$-weighted continuation;
 - **Entropy:** unchanged (Gaussian + Dirichlet).  
 - **ICM:** unchanged.  
 - **Total:**  
+
 $$\(
 \[
 L_{\mathrm{total}} \;=\; L_{\mathrm{PPO}} \;+\; c_v L_{\mathrm{value}} \;+\; \beta_{\mathrm{ent}} L_{\mathrm{ent}} \;+\; c_{\mathrm{icm}} L_{\mathrm{ICM}}.
 \]
-$$\)
+\)$$
 
 ---
 
