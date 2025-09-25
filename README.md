@@ -184,7 +184,7 @@ These are used to build the EZ bootstrap target and TD residual below.
 
 $$\(
 \[
-G_{t+1} := (1 - c_t)\,\big( R_f[t+1] + w_t^{\top} \tilde R[t+1] \big) \;-\; \kappa \, \lVert w_t - w_{t-1}\rVert_1.
+G_{t+1} := (1 - c_t)\big( R_f[t+1] + w_t^{\top} \tilde R[t+1] \big) - \kappa \lVert w_t - w_{t-1}\rVert_1.
 \]
 \)$$
 
