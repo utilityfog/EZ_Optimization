@@ -144,7 +144,7 @@ Shared backbone on $\(s_t\)$ (MLP with your chosen sizes/activations), followed 
 
 **Action log-probabilities (exact).**
 
-- Let $\(y_c := \mathrm{logit}(c_t) = \log\!\big(\tfrac{c_t}{1-c_t}\big)\)$. Then the change-of-variables gives
+- Let $\(y_c := \mathrm{logit}(c_t) = \log\big(\tfrac{c_t}{1-c_t}\big)\)$. Then the change-of-variables gives
 
 $$\(
 \[
@@ -213,15 +213,15 @@ r_t^{\mathrm{ext}} := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}}.
 
 **Networks and dimensions**
 - Choose embedding dims $\(m\)$ ( e.g., $\(64\)$ ), hidden widths $\(E,F\)$ ( e.g., $\(128\)$ ).
-- **State encoder** $\(\phi_\omega:\mathbb{R}^{1+d+n}\!\to\!\mathbb{R}^m\)$:
+- **State encoder** $\(\phi_\omega:\mathbb{R}^{1+d+n}\to\mathbb{R}^m\)$:
   - $\(e1 := \mathrm{GELU}(W_{e1}s_t+b_{e1})\)$, $\(W_{e1}\in\mathbb{R}^{E\times(1+d+n)}\)$.
   - $\(e2 := \mathrm{GELU}(W_{e2}e1+b_{e2})\)$, $\(W_{e2}\in\mathbb{R}^{E\times E}\)$.
   - $\(\phi(s_t) := W_{eo}e2 + b_{eo} \in \mathbb{R}^m\)$.
 - **Action embedding** for continuous $\(a_t=(c_t,w_t)\)$:
   - $\(y_c := \mathrm{logit}(c_t)=\log(\tfrac{c_t}{1-c_t})\)$.
   - $\(\psi(a_t) := \mathrm{concat}(y_c,\ w_t) \in \mathbb{R}^{1+n}\)$.
-- **Forward model** $\(f_\omega:\mathbb{R}^m\times\mathbb{R}^{1+n}\!\to\!\mathbb{R}^m\)$:
-  - $\(u1 := \mathrm{GELU}\!\big(W_{f1}\,\mathrm{concat}(\phi(s_t),\psi(a_t))+b_{f1}\big)\)$, $\(W_{f1}\in\mathbb{R}^{F\times(m+1+n)}\)$.
+- **Forward model** $\(f_\omega:\mathbb{R}^m\times\mathbb{R}^{1+n}\to\mathbb{R}^m\)$:
+  - $\(u1 := \mathrm{GELU}\big(W_{f1}\,\mathrm{concat}(\phi(s_t),\psi(a_t))+b_{f1}\big)\)$, $\(W_{f1}\in\mathbb{R}^{F\times(m+1+n)}\)$.
   - $\(u2 := \mathrm{GELU}(W_{f2}u1+b_{f2})\)$, $\(W_{f2}\in\mathbb{R}^{F\times F}\)$.
   - $\(\hat\phi_{t+1} := f(\phi(s_t),a_t) := W_{fo}u2+b_{fo} \in \mathbb{R}^m\)$.
 - **(Optional) Inverse model** $\(g_\omega:\mathbb{R}^m\times\mathbb{R}^m\to\)$ action params:
@@ -280,7 +280,7 @@ $$\(
 
 $$\(
 \[
-L_{\mathrm{PPO}} := -\,\mathbb{E}_t\!\Big[\min\!\big(r_t(\theta)\,\tilde A_t,\ \mathrm{clip}(r_t(\theta),1-\varepsilon,1+\varepsilon)\,\tilde A_t\big)\Big].
+L_{\mathrm{PPO}} := -\,\mathbb{E}_t\Big[\min \big(r_t(\theta)\,\tilde A_t,\ \mathrm{clip}(r_t(\theta),1-\varepsilon,1+\varepsilon)\,\tilde A_t\big)\Big].
 \]
 \)$$
 
@@ -293,7 +293,7 @@ L_{\mathrm{PPO}} := -\,\mathbb{E}_t\!\Big[\min\!\big(r_t(\theta)\,\tilde A_t,\ \
 
 $$\(
 \[
-H_c := \tfrac{1}{2}\,\log\!\big(2\pi e\,\sigma_c^2\big).
+H_c := \tfrac{1}{2}\,\log\big(2\pi e\,\sigma_c^2\big).
 \]
 \)$$
 
@@ -336,7 +336,7 @@ L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{
 
     $$\(
     \[
-    \beta_{\mathrm{ent}} \leftarrow \mathrm{clip}\!\Big(\beta_{\mathrm{ent}}\cdot \exp\big(\tau\,[\,H_{\text{target}}-(H_c{+}H_w)\,]\big),\ \beta_{\min},\ \beta_{\max}\Big),
+    \beta_{\mathrm{ent}} \leftarrow \mathrm{clip}\Big(\beta_{\mathrm{ent}}\cdot \exp\big(\tau\,[\,H_{\text{target}}-(H_c{+}H_w)\,]\big),\ \beta_{\min},\ \beta_{\max}\Big),
     \]
     \)$$
 
@@ -346,7 +346,7 @@ L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{
 
     $$\(
     \[
-    c_v \leftarrow \mathrm{clip}\!\Bigg(\frac{\mathrm{RMS}[U_t]}{\mathrm{RMS}[V_t]+\epsilon},\ c_{v,\min},\ c_{v,\max}\Bigg),
+    c_v \leftarrow \mathrm{clip}\Bigg(\frac{\mathrm{RMS}[U_t]}{\mathrm{RMS}[V_t]+\epsilon},\ c_{v,\min},\ c_{v,\max}\Bigg),
     \]
     \)$$
 
@@ -358,7 +358,7 @@ L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{
 
     $$\(
     \[
-    c_{\mathrm{icm}} \leftarrow \mathrm{clip}\!\Big(c_{\mathrm{icm}}\cdot \exp(\rho\,[\,p_{\text{int}}-q\,]),\ c_{\mathrm{icm},\min},\ c_{\mathrm{icm},\max}\Big),
+    c_{\mathrm{icm}} \leftarrow \mathrm{clip}\Big(c_{\mathrm{icm}}\cdot \exp(\rho\,[\,p_{\text{int}}-q\,]),\ c_{\mathrm{icm},\min},\ c_{\mathrm{icm},\max}\Big),
     \]
     \)$$
 
