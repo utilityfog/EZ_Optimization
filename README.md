@@ -64,7 +64,7 @@ G_{t+1} := (1 - c_t)\,\big( R_f[t+1] + w_t^{\top} \tilde R[t+1] \big) \;-\; \kap
 
 ## 3) **Learnable Fractional Differencing** (returns-domain feature module)
 ### 3.1 Goal & parameter
-Learn a memory depth $\(d_{\text{target}} \in [d_{\min}, d_{\max}]\)$ (e.g., $\([0,1]\)$) that controls the fractional differencing of returns to **capture long memory** while promoting **stationarity**.
+Learn a memory depth $\(d_{\text{target}} \in [d_{\min}, d_{\max}]\)$ (e.g., $\([0,1]\)$ ) that controls the fractional differencing of returns to **capture long memory** while promoting **stationarity**.
 
 ### 3.2 Placement in pipeline
 - Input raw **log-returns** per asset: $\(r_t \in \mathbb{R}^n\)$ (or windows).  
