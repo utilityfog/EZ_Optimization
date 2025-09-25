@@ -97,7 +97,7 @@ For lifetime utility $\(V_t\)$ and consumption $\(C_t\)$:
 
 $$\(
 \[
-V_t \;=\; \Big[(1-\beta)\, C_t^{\,1-\frac{1}{\psi}} \;+\; \beta \,\big( \mathbb{E}_t [ V_{t+1}^{\,1-\gamma} ] \big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}} \Big]^{\frac{1}{\,1-\frac{1}{\psi}\,}}.
+V_t = \Big[(1-\beta)\, C_t^{\,1-\frac{1}{\psi}} + \beta \,\big( \mathbb{E}_t [ V_{t+1}^{\,1-\gamma} ] \big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}} \Big]^{\frac{1}{\,1-\frac{1}{\psi}\,}}.
 \]
 \)$$
 
@@ -108,7 +108,7 @@ We **train in $\(z\)$-space** with a two-head critic predicting $\(\hat z_t \app
 
 $$\(
 \[
-T^{(z)}_t \;:=\; (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} \;+\; \beta \,\Big(\hat y_{t+1}\Big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}}.
+T^{(z)}_t := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} + \beta \,\Big(\hat y_{t+1}\Big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}}.
 \]
 \)$$
 
@@ -148,7 +148,7 @@ Shared backbone on $\(s_t\)$ (MLP with your chosen sizes/activations), followed 
 
 $$\(
 \[
-\log p(c_t\mid s_t) \;=\; \log \mathcal{N}(y_c;\,\mu_c,\sigma_c^2)\;-\;\log\!\big(c_t(1-c_t)\big).
+\log p(c_t\mid s_t) = \log \mathcal{N}(y_c,\mu_c,\sigma_c^2) - \log \big(c_t(1-c_t)\big).
 \]
 \)$$
 
@@ -156,7 +156,7 @@ $$\(
 
 $$\(
 \[
-\log p(w_t\mid s_t) \;=\; \log \Gamma\!\Big(\textstyle\sum_{i=1}^n \alpha_i\Big)\;-\;\sum_{i=1}^n \log \Gamma(\alpha_i)\;+\;\sum_{i=1}^n (\alpha_i-1)\log w_t[i].
+\log p(w_t\mid s_t) = \log \Gamma \Big(\textstyle\sum_{i=1}^n \alpha_i\Big) - \sum_{i=1}^n \log \Gamma(\alpha_i) + \sum_{i=1}^n (\alpha_i-1)\log w_t[i].
 \]
 \)$$
 
@@ -240,7 +240,7 @@ r_t^{\mathrm{int}} := \eta \, \big\lVert\, \phi_{t+1} - \hat \phi_{t+1} \,\big\r
 
 - Forward loss: $\(L_{\mathrm{fwd}}(\omega) := \big\lVert \phi_{t+1} - \hat\phi_{t+1} \big\rVert_2^2\)$.
 - Inverse loss (optional):
-  - $\(L_{\mathrm{inv}}(\omega) := -\big[\log \mathcal{N}(y_c;\hat\mu_c,\hat\sigma_c^2)\ +\ \log \mathrm{Dir}(w_t;\hat\alpha)\big]\)$.
+  - $\(L_{\mathrm{inv}}(\omega) := -\big[\log \mathcal{N}(y_c\hat\mu_c,\hat\sigma_c^2)\ +\ \log \mathrm{Dir}(w_t\hat\alpha)\big]\)$.
 - Combine with weight $\(\lambda_{\mathrm{inv}}\ge 0\)$:
   - $\(L_{\mathrm{ICM}} := L_{\mathrm{fwd}} + \lambda_{\mathrm{inv}} L_{\mathrm{inv}}\)$.
 
@@ -256,7 +256,7 @@ $\(r_t := r_t^{\mathrm{ext}} + r_t^{\mathrm{int}}\)$.
 
 $$\(
 \[
-T^{(z)}_t \;=\; (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} \;+\; \beta \,\Big(\hat y_{t+1}\Big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}}.
+T^{(z)}_t = (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} + \beta \,\Big(\hat y_{t+1}\Big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}}.
 \]
 \)$$
 
@@ -264,7 +264,7 @@ T^{(z)}_t \;=\; (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} \;+\; \beta \,\Big(\hat y_{
 
 $$\(
 \[
-\delta_t^{\mathrm{EZ}} \;:=\; r_t \;+\; \beta\big(T^{(z)}_t - r_t^{\mathrm{ext}}\big) \;-\; \hat z_t.
+\delta_t^{\mathrm{EZ}} := r_t + \beta\big(T^{(z)}_t - r_t^{\mathrm{ext}}\big) - \hat z_t.
 \]
 \)$$
 
@@ -280,7 +280,7 @@ $$\(
 
 $$\(
 \[
-L_{\mathrm{PPO}} \;:=\; -\,\mathbb{E}_t\!\Big[\min\!\big(r_t(\theta)\,\tilde A_t,\ \mathrm{clip}(r_t(\theta),1-\varepsilon,1+\varepsilon)\,\tilde A_t\big)\Big].
+L_{\mathrm{PPO}} := -\,\mathbb{E}_t\!\Big[\min\!\big(r_t(\theta)\,\tilde A_t,\ \mathrm{clip}(r_t(\theta),1-\varepsilon,1+\varepsilon)\,\tilde A_t\big)\Big].
 \]
 \)$$
 
@@ -301,7 +301,7 @@ H_c := \tfrac{1}{2}\,\log\!\big(2\pi e\,\sigma_c^2\big).
 
 $$\(
 \[
-H_w \;:=\; \log \Gamma\!\Big(\textstyle\sum_i \alpha_i\Big) \;-\; \sum_i \log \Gamma(\alpha_i) \;+\; \Big(\textstyle\sum_i (\alpha_i-1)\Big)\psi_0\!\Big(\textstyle\sum_i \alpha_i\Big) \;-\; \sum_i (\alpha_i-1)\psi_0(\alpha_i).
+H_w := \log \Gamma \Big(\textstyle\sum_i \alpha_i\Big) - \sum_i \log \Gamma(\alpha_i) + \Big(\textstyle\sum_i (\alpha_i-1)\Big)\psi_0\Big(\textstyle\sum_i \alpha_i\Big) - \sum_i (\alpha_i-1)\psi_0(\alpha_i).
 \]
 \)$$
 
@@ -309,7 +309,7 @@ H_w \;:=\; \log \Gamma\!\Big(\textstyle\sum_i \alpha_i\Big) \;-\; \sum_i \log \G
 
 $$\(
 \[
-L_{\mathrm{ent}} := -\,(H_c + H_w).
+L_{\mathrm{ent}} := -(H_c + H_w).
 \]
 \)$$
 
@@ -363,224 +363,6 @@ L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{
     \)$$
 
     with small gain $\(\rho\in[10^{-3},10^{-2}]\)$ and bounds $\(c_{\mathrm{icm},\min}=0.05\)$, $\(c_{\mathrm{icm},\max}=2.0\)$.
-
----
-
-## 5) ACTOR & CRITIC (Z-functions, distributions, exact log-probs)
-### 5.1 Actor $\(f_\theta\)$
-**Input:** $\(s_t \in \mathbb{R}^{1+d+n}\)$ → shared backbone → three heads:
-- Consumption pre-activation mean $\(\mu_c := z_c \in \mathbb{R}\)$ and log-std $\(\ell_c \in \mathbb{R}\)$; set $\(\sigma_c := \mathrm{softplus}(\ell_c)+\sigma_{\min}\)$.  
-  - Sample pre-squash $\(y_c \sim \mathcal{N}(\mu_c, \sigma_c^2)\)$, then **squash**: $\(c_t := \sigma(y_c) \in (0,1)\)$, where $\(\sigma(\cdot)\)$ is the logistic sigmoid.
-- Risky weights logits $\(z_w \in \mathbb{R}^n\)$; **Dirichlet** concentration $\(\alpha := \mathrm{softplus}(z_w) + \varepsilon_{\mathrm{dir}}\)$ → sample $\(w_t \sim \mathrm{Dir}(\alpha)\)$.
-- Deterministic eval: $\(c_t := \sigma(\mu_c)\)$, $\(w_t := \alpha / \sum_i \alpha_i\)$.
-
-### 5.2 Exact log-probabilities (for PPO ratio)
-- For consumption (squashed Gaussian): with $\(y_c = \mathrm{logit}(c_t)\)$ and Jacobian $\(\left|\frac{dy}{dc}\right| = \frac{1}{c_t (1-c_t)}\)$:
-
-$$\(
-\[
-\log p(c_t\mid s_t) \;=\; \log \mathcal{N}(y_c; \mu_c, \sigma_c^2) \;-\; \log\!\big( c_t(1-c_t) \big).
-\]
-\)$$
-
-- For weights (Dirichlet):
-
-$$\(
-\[
-\log p(w_t\mid s_t) \;=\; \log \Gamma\!\Big(\textstyle\sum_i \alpha_i\Big) \;-\; \sum_i \log \Gamma(\alpha_i) \;+\; \sum_i (\alpha_i-1)\log w_t[i].
-\]
-\)$$
-
-- Joint: $\(\log \pi_\theta(a_t\mid s_t) = \log p(c_t\mid s_t) + \log p(w_t\mid s_t)\)$ (store at collection).
-
-### 5.3 Critic $\(g_\psi\)$ (**two heads for EZ**)
-- Input: $\(s_t\)$. Shared backbone → two scalar heads: $\(\hat z_t\)$ and $\(\hat y_t\)$.  
-- Only $\(\hat z_t\)$ is used in advantages/GAE; $\(\hat y_t\)$ feeds the $\(z\)$-target via §4.2.
-
----
-
-## 6) ENVIRONMENT STEP (FULL SEQUENCE)
-At each time $\(t\)$:
-1. Build state $\(s_t = \mathrm{concat}(\tilde W_t, \tilde x_t, w_{t-1})\)$ (after FD alignment, see §3.3).
-2. Actor forward: get $\(\mu_c, \sigma_c, \alpha\)$ → sample $\(c_t, w_t\)$; compute and **store** $\(\log \pi_{\theta_{\text{old}}}(a_t\mid s_t)\)$ exactly (§5.2).
-3. Consumption: $\(C_t := c_t \cdot W_t\)$.
-4. Observe $\(R[t+1], R_f[t+1]\)$; turnover $\(\lVert w_t - w_{t-1}\rVert_1\)$; cost $\(\mathrm{TC_t} := \kappa W_t \lVert w_t - w_{t-1}\rVert_1\)$.
-5. Wealth update via §1.4 → $\(W_{t+1}\)$; update max $\(M_{t+1}\)$.
-6. Build next features $\(x_{t+1}\)$ (post-FracDiff), standardize $\(\to \tilde x_{t+1}\)$.
-7. Next state: $\(s_{t+1} := \mathrm{concat}(W_{t+1}/M_{t+1}, \tilde x_{t+1}, w_t)\)$.
-
----
-
-## 7) REWARDS (EXTERNAL EZ FLOW, INTRINSIC ICM)
-### 7.1 External reward (EZ flow term in $\(z\)$-space)
-
-$$\(
-\[
-r_t^{\mathrm{ext}} := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}}.
-\]
-\)$$
-
-### 7.2 Intrinsic curiosity reward (ICM)
-Encoders and models (as in baseline):
-- State encoder $\(\phi(s) \in \mathbb{R}^m\)$; forward model $\(f(\phi(s_t), \psi(a_t)) \to \hat \phi_{t+1}\)$; (optional) inverse model for stability.
-- Action embedding $\(\psi(a_t) := \mathrm{concat}\big( \mathrm{logit}(c_t), w_t \big)\)$.
-- Intrinsic reward:
-
-$$\(
-\[
-r_t^{\mathrm{int}} := \eta \, \big\lVert\, \phi(s_{t+1}) - \hat \phi_{t+1} \,\big\rVert_2^2.
-\]
-\)$$
-
-- ICM losses: $\(L_{\mathrm{fwd}} = \lVert\cdot\rVert_2^2\)$, $\(L_{\mathrm{inv}} = -\big[ \log \mathcal{N}(y_c; \hat\mu_c, \hat\sigma_c^2) + \log \mathrm{Dir}(w_t; \hat\alpha) \big]\)$ (optional), $\(L_{\mathrm{ICM}} = L_{\mathrm{fwd}} + \lambda_{\mathrm{inv}} L_{\mathrm{inv}}\)$.
-
-### 7.3 Total reward
-$\(r_t := r_t^{\mathrm{ext}} + r_t^{\mathrm{int}}\)$ (what enters the advantage computation).
-
----
-
-## 8) ADVANTAGES, TARGETS, AND LOSSES (EZ version)
-### 8.1 EZ TD residual and GAE (in $\(z\)$-space)
-- Build bootstrap target for $\(z\)$ using next-state head:
-
-$$\(
-\[
-T^{(z)}_t \;=\; (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} \;+\; \beta \,\Big(\hat y_{t+1}\Big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}}.
-\]
-\)$$
-
-- Define TD residual:
-
-$$\(
-\[
-\delta_t^{\mathrm{EZ}} \;:=\; r_t \;+\; \beta\big(T^{(z)}_t - r_t^{\mathrm{ext}}\big) \;-\; \hat z_t.
-\]
-\)$$
-
-Intuition: $\(T^{(z)}\)$ already contains the $\(\beta\)$-weighted continuation; $\(r_t^{\mathrm{ext}}\)$ is the immediate $\(z\)$-flow.  
-- Compute **GAE( $\(\lambda\)$ )** on $\(\delta_t^{\mathrm{EZ}}\)$ exactly as baseline GAE (backward recursion).  
-- Advantages are normalized per batch and used in PPO unchanged.
-
-### 8.2 Losses
-- **Policy (clipped PPO):** exactly baseline with advantages from §8.1.  
-- **Value (z-head):** $\( L_{\mathrm{value}} = \tfrac{1}{2}(\hat z_t - T^{(z)}_t)^2 \)$.  
-- **Entropy:** unchanged (Gaussian + Dirichlet).  
-- **ICM:** unchanged.  
-- **Total:**  
-
-$$\(
-\[
-L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{ent}} L_{\mathrm{ent}} + c_{\mathrm{icm}} L_{\mathrm{ICM}}.
-\]
-\)$$
-
----
-
-## 7) REWARDS (EXTERNAL EZ FLOW, INTRINSIC ICM)
-### 7.1 External reward (EZ flow term in $\(z\)$-space)
-
-$$\(
-\[
-r_t^{\mathrm{ext}} := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}}.
-\]
-\)$$
-
-### 7.2 Intrinsic curiosity reward (ICM)
-Encoders and models (as in baseline):
-- State encoder $\(\phi(s) \in \mathbb{R}^m\)$; forward model $\(f(\phi(s_t), \psi(a_t)) \to \hat \phi_{t+1}\)$; (optional) inverse model for stability.
-- Action embedding $\(\psi(a_t) := \mathrm{concat}\big( \mathrm{logit}(c_t), w_t \big)\)$.
-- Intrinsic reward:
-
-$$\(
-\[
-r_t^{\mathrm{int}} := \eta \, \big\lVert\, \phi(s_{t+1}) - \hat \phi_{t+1} \,\big\rVert_2^2.
-\]
-\)$$
-
-- ICM losses: $\(L_{\mathrm{fwd}} = \lVert\cdot\rVert_2^2\)$, $\(L_{\mathrm{inv}} = -\big[ \log \mathcal{N}(y_c; \hat\mu_c, \hat\sigma_c^2) + \log \mathrm{Dir}(w_t; \hat\alpha) \big]\)$ (optional), $\(L_{\mathrm{ICM}} = L_{\mathrm{fwd}} + \lambda_{\mathrm{inv}} L_{\mathrm{inv}}\)$.
-
-### 7.3 Total reward
-$\(r_t := r_t^{\mathrm{ext}} + r_t^{\mathrm{int}}\)$ (what enters the advantage computation).
-
----
-
-## 8) ADVANTAGES, TARGETS, AND LOSSES (EZ version)
-### 8.1 EZ TD residual and GAE (in $\(z\)$-space)
-- Build bootstrap target for $\(z\)$ using next-state head:
-
-$$\(
-\[
-T^{(z)}_t \;=\; (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} \;+\; \beta \,\Big(\hat y_{t+1}\Big)^{\frac{1-\frac{1}{\psi}}{\,1-\gamma\,}}.
-\]
-\)$$
-
-- Define TD residual:
-
-$$\(
-\[
-\delta_t^{\mathrm{EZ}} \;:=\; r_t \;+\; \beta\big(T^{(z)}_t - r_t^{\mathrm{ext}}\big) \;-\; \hat z_t.
-\]
-\)$$
-
-Intuition: $\(T^{(z)}\)$ already contains the $\(\beta\)$-weighted continuation; $\(r_t^{\mathrm{ext}}\)$ is the immediate $\(z\)$-flow.  
-- Compute **GAE( $\(\lambda\)$ )** on $\(\delta_t^{\mathrm{EZ}}\)$ exactly as baseline GAE (backward recursion).  
-- Advantages are normalized per batch and used in PPO unchanged.
-
-### 8.2 Losses
-- **Policy (clipped PPO):** exactly baseline with advantages from §8.1.  
-- **Value (z-head):** $\( L_{\mathrm{value}} = \tfrac{1}{2}(\hat z_t - T^{(z)}_t)^2 \)$.  
-- **Entropy:** define the entropy loss (minimized) as
-  - For the **consumption** squashed-Gaussian head, let $\(y_c \sim \mathcal{N}(\mu_c,\sigma_c^2)\)$ be the pre-squash variable. Use the Normal entropy
-    $$\(
-    \[
-    H_c \;:=\; \tfrac{1}{2}\,\log\!\big(2\pi e\,\sigma_c^2\big).
-    \]
-    \)$$
-  - For the **risky-weights** Dirichlet head with concentration $\,\alpha \in \mathbb{R}_{>0}^n\,$,
-    $$\(
-    \[
-    H_w \;:=\; \log \Gamma\!\Big(\textstyle\sum_i \alpha_i\Big) \;-\; \sum_i \log \Gamma(\alpha_i) \;+\; \Big(\textstyle\sum_i (\alpha_i-1)\Big)\psi_0\!\Big(\textstyle\sum_i \alpha_i\Big) \;-\; \sum_i (\alpha_i-1)\psi_0(\alpha_i),
-    \]
-    \)$$
-    where $\(\psi_0\)$ is the digamma function.
-  - **Entropy loss** (negative total entropy, to be minimized):
-    $$\(
-    \[
-    L_{\mathrm{ent}} \;:=\; -\,\big( H_c + H_w \big).
-    \]
-    \)$$
-- **ICM:** unchanged.  
-- **Total:**  
-
-$$\(
-\[
-L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{ent}} L_{\mathrm{ent}} + c_{\mathrm{icm}} L_{\mathrm{ICM}}.
-\]
-\)$$
-
-**Coefficient selection (how to set \(c_v\), \(\beta_{\mathrm{ent}}\), \(c_{\mathrm{icm}}\)):**
-- **Practical defaults (good starting point):** $\(c_v=1.0\)$, $\( \beta_{\mathrm{ent}} \in [10^{-4},10^{-3}] \)$, $\( c_{\mathrm{icm}} \in [0.1,1.0] \)$.
-- **Scale matching (recommended automatic tuning):**
-  1. Maintain **target entropy** \(H_{\text{target}}\) for actions (e.g., per-dimension pre-squash Normal entropy \(\approx -0.5\), and Dirichlet entropy \(\approx\) 10–20% of its maximum for your \(n\)). Update \(\beta_{\mathrm{ent}}\) each epoch to push \(H_c{+}H_w \to H_{\text{target}}\):
-     $$\(
-     \[
-     \beta_{\mathrm{ent}} \leftarrow \mathrm{clip}\!\Big(\beta_{\mathrm{ent}} \cdot \exp\big(\tau\,[\,H_{\text{target}} - (H_c{+}H_w)\,]\big),\,\beta_{\min},\,\beta_{\max}\Big),
-     \]
-     \)$$
-     with a small gain \( \tau \in [10^{-3},10^{-2}] \).
-  2. Match the **value loss** scale to the policy loss using running RMS (stop-grad on denominators):
-     $$\(
-     \[
-     c_v \leftarrow \mathrm{clip}\!\Bigg(\frac{\mathrm{RMS}\big[\min(r_t \tilde A_t,\ \mathrm{clip}(r_t,1-\varepsilon,1+\varepsilon)\tilde A_t)\big]}{\mathrm{RMS}\big[\tfrac{1}{2}(\hat z_t - T^{(z)}_t)^2\big]},\ c_{v,\min},\ c_{v,\max}\Bigg).
-     \]
-     \)$$
-  3. Keep **intrinsic reward influence** at a target fraction \(p_{\text{int}}\in[0,0.3]\) of the total batch reward by adapting \(c_{\mathrm{icm}}\) (or \(\eta\)) so that
-     $$\(
-     \[
-     \frac{\sum_t r_t^{\mathrm{int}}}{\sum_t (r_t^{\mathrm{ext}}+r_t^{\mathrm{int}})} \;\approx\; p_{\text{int}}.
-     \]
-     \)$$
-     A simple proportional controller on \(c_{\mathrm{icm}}\) (or on \(\eta\)) each epoch achieves this without changing logic elsewhere.
 
 ---
 
