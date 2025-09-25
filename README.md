@@ -131,7 +131,7 @@ T^{(z)}_t := (1-\beta)\, C_t^{\,1-\frac{1}{\psi}} + \beta \,\Big(\hat y_{t+1}\Bi
 - Hyperparameters for heads: $\(\sigma_{\min}>0\)$ (std floor), $\(\varepsilon_{\mathrm{dir}}>0\)$ (Dirichlet floor).
 
 ### 5.1 Actor $\(f_\theta\)$
-Shared backbone on $\(s_t\)$ (MLP with your chosen sizes/activations), followed by three heads:
+Shared backbone on $\(s_t\)$ (MLP with chosen sizes/activations), followed by three heads:
 
 - **Consumption head (squashed Gaussian).**
   - Pre-squash Normal parameters: mean $\(\mu_c \in \mathbb{R}\)$, log-std $\(\ell_c \in \mathbb{R}\)$, std $\(\sigma_c := \mathrm{softplus}(\ell_c)+\sigma_{\min}\)$.
