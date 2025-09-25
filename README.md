@@ -146,7 +146,7 @@ $$\(
 
 - Joint: $\(\log \pi_\theta(a_t\mid s_t) = \log p(c_t\mid s_t) + \log p(w_t\mid s_t)\)$ (store at collection).
 
-### 5.3 Critic \(g_\psi\) (**two heads for EZ**)
+### 5.3 Critic $\(g_\psi\)$ (**two heads for EZ**)
 - Input: $\(s_t\)$. Shared backbone → two scalar heads: $\(\hat z_t\)$ and $\(\hat y_t\)$.  
 - Only $\(\hat z_t\)$ is used in advantages/GAE; $\(\hat y_t\)$ feeds the $\(z\)$-target via §4.2.
 
@@ -232,7 +232,7 @@ L_{\mathrm{total}} \;=\; L_{\mathrm{PPO}} \;+\; c_v L_{\mathrm{value}} \;+\; \be
 ## 9) TRAINING PROCEDURE (COLLECT → TARGETS → PPO)
 ### 9.1 Hyperparameters (additions/changes)
 - **EZ:** choose $\(\gamma \in \{5,10\}\)$, $\(\psi \in \{0.5,1.0,1.5\}\)$, $\(\beta \in [0.95,0.999]\)$.
-- **FracDiff:** $\(d_{\text{target}}\)$ init $\(0.3\)$–$\(0.5\)$ within $\([0,1]\)$, tolerance $\(10^{-4}\)$, $\(K_{\max} \in [1024,4096]\)$ (match horizon).
+- **FracDiff:** $\(d_{\text{target}}\)$ init $\(0.3\)$ – $\(0.5\)$ within $\([0,1]\)$, tolerance $\(10^{-4}\)$, $\(K_{\max} \in [1024,4096]\)$ (match horizon).
 - **RL:** keep PPO $\(\lambda\)$, clip, epochs, minibatch, lrs same initially.
 
 ### 9.2 Rollout collection (unchanged mechanics)
