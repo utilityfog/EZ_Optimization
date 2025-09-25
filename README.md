@@ -25,7 +25,7 @@ This document **replaces CRRA** with **Epstein–Zin (EZ)** recursive preference
 - Discrete time $\(t = 0,1,2,\ldots,T-1\)$ (episode length $T$).  
 - Number of risky assets $\(n \ge 1\)$.
 - Market data (known up to $\(t\)$ when acting):
-  - Risky **gross** returns: $\(R[t] \in \mathbb{R}^n\)$ (e.g., $\(1.01 = +1\%\)$).
+  - Risky **gross** returns: $\(R[t] \in \mathbb{R}^n\)$ (e.g., $1.01 = +1\%$).
   - Risk-free **gross** return: $\(R_f[t] \in \mathbb{R}\)$.
 
 ### 1.2 Wealth, consumption, normalization
