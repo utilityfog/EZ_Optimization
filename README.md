@@ -34,22 +34,7 @@ We now consider a **single risky asset** (S&P) and remove portfolio optimization
 - Consumption fraction (action): $\(c_t \in (0,1)\)$; **dollar consumption** $\(C_t := c_t \cdot W_t\)$.
 - Running max wealth $\(M_t := \max_{0\le \tau \le t} W_\tau\)$; normalized wealth $\(\tilde W_t := W_t / M_t \in (0,1]\)$.
 
-~~### 1.3 Portfolio, turnover, transaction cost
-- Risky-asset weights (action): $\(w_t \in \Delta^n\)$ (simplex, nonnegative, $\(\sum_{i=1}^n w_t[i] = 1 \)$ ).  
-- Implicit cash weight: $\(w_{\text{cash},t} := 1 - \sum_{i=1}^n w_t[i]\)$ (nonnegative by construction).
-- Turnover: $\(\mathrm{turnover_t} := \lVert w_t - w_{t-1} \rVert_1\)$.
-- Transaction-cost coefficient: $\(\kappa \ge 0\)$.
-- Dollar cost: $\(\mathrm{TC}_t := \kappa \cdot W_t \cdot \mathrm{turnover}_t\)$ (paid immediately at $\(t\)$ ).~~
-
 ### 1.3 Budget identity (wealth transition)
-~~Let risky **excess** return $\(\tilde R[t+1] := R[t+1] - R_f[t+1]\cdot \mathbf{1}\)$.
-- Gross growth factor:
-$$\(
-\[
-G_{t+1} := (1 - c_t)*\big( R_f[t+1] + w_t^{\top} \tilde R[t+1] \big) - \kappa \lVert w_t - w_{t-1}\rVert_1.
-\]
-\)$$
-- Next wealth: $\(W_{t+1} := W_t \cdot G_{t+1}\)$. Safety floors may clip $\(G_{t+1}\)$ to $\(\varepsilon_g>0\)$.~~
 
 In the simplified world, after consuming \(C_t = c_t W_t\), the remaining wealth
 \((1 - c_t) W_t\) is fully invested in the risky asset, which realizes a gross return
