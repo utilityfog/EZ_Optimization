@@ -1,62 +1,123 @@
+import os
 import numpy as np
 import torch
 from torch.optim import Adam
 
-from data_preprocessing import load_sp500, compute_gross_returns
-from env import EZSingleAssetEnv
-from model import ActorCriticEZ
-from algorithm.ppo import compute_gae, ppo_update
-from algorithm.ez_targets import ez_target_z
-from config import Config
-from utils import RolloutBuffer
+from .config import Config
+from .data_preprocessing import build_processed, PROC_DIR
+from .env import EZSingleAssetEnv
+from .model import ActorCriticEZ
+from .algorithm.ez_targets import ez_z_target
+from .algorithm.ppo import compute_gae, ppo_update
+from .utils import RolloutBuffer
+
+def ensure_processed(cfg: Config):
+    features_path = os.path.join(PROC_DIR, "features.npy")
+    returns_path = os.path.join(PROC_DIR, "returns.npy")
+    if not (os.path.exists(features_path) and os.path.exists(returns_path)):
+        print("Processed data not found, running preprocessing")
+        build_processed(frac_d=cfg.frac_d, max_lag=cfg.frac_max_lag, tol=cfg.frac_tol)
+
+    features = np.load(features_path)
+    returns = np.load(returns_path)
+    return features, returns
+
 
 def main():
     cfg = Config()
 
-    returns = np.load("data/processed/returns.npy")
-    env = EZSingleAssetEnv(returns, cfg.beta, cfg.psi)
+    device = torch.device(cfg.device)
+
+    features, returns = ensure_processed(cfg)
+
+    env = EZSingleAssetEnv(
+        returns=returns,
+        features=features,
+        beta=cfg.beta,
+        psi=cfg.psi,
+        start_wealth=cfg.start_wealth,
+    )
 
     dummy_state = env.reset()
-    state_dim = len(dummy_state)
+    state_dim = dummy_state.shape[0]
 
-    model = ActorCriticEZ(state_dim)
+    model = ActorCriticEZ(state_dim=state_dim, hidden_dim=128).to(device)
     optimizer = Adam(model.parameters(), lr=cfg.lr)
 
-    for episode in range(2000):
+    for episode in range(cfg.num_episodes):
         buf = RolloutBuffer()
-        s = torch.tensor(env.reset()).float()
+        state_np = env.reset()
+        state = torch.tensor(state_np, dtype=torch.float32, device=device)
 
-        for t in range(cfg.horizon):
-            c, logp, z_hat, y_hat = model.act(s)
-            c_np = c.detach().numpy().item()
+        done = False
+        step_idx = 0
 
-            next_s_np, r_ext, done, info = env.step(c_np)
-            next_s = torch.tensor(next_s_np).float() if not done else None
+        while not done:
+            c_t, logp, z_hat, y_hat = model.act(state)
+            c_scalar = float(c_t.detach().cpu().item())
 
-            buf.add(s, c, logp, r_ext, z_hat, y_hat)
+            next_state_np, r_ext, done, info = env.step(c_scalar)
+            C_t = info["C"]
 
-            if done:
-                break
-            s = next_s
+            buf.add(
+                state,
+                c_t.detach(),
+                logp.detach(),
+                r_ext,
+                C_t,
+                z_hat.detach(),
+                y_hat.detach(),
+            )
 
-        states, actions, logps_old, rewards, z_hats, y_hats = buf.to_tensors()
+            if not done:
+                state = torch.tensor(
+                    next_state_np, dtype=torch.float32, device=device
+                )
 
-        # y_hat_{t+1} (shifted)
-        y_next = torch.cat([y_hats[1:], y_hats[-1:]], dim=0)
+            step_idx += 1
 
-        # C_t recovered from s and a?
-        C_t = actions.squeeze() * 1   # if you want exact C_t, store from env
+        states, actions, logps_old, rewards, C_arr, z_hats, y_hats = buf.to_tensors(
+            device=device
+        )
 
-        z_targets = ez_target_z(C_t, y_next, cfg.beta, cfg.psi, cfg.gamma)
+        # build y_next_hat by shifting
+        y_next = torch.cat([y_hats[1:], y_hats[-1:].clone()], dim=0)
 
-        advantages, returns = compute_gae(rewards, z_hats, z_hats[-1])
+        z_targets = ez_z_target(
+            C_t=C_arr,
+            y_next_hat=y_next,
+            beta=cfg.beta,
+            psi=cfg.psi,
+            gamma_risk=cfg.gamma_risk,
+        )
 
-        batch = (states, actions, logps_old, advantages, returns, z_targets)
+        advantages, returns_gae = compute_gae(
+            rewards=rewards, values=z_hats, gamma=cfg.gamma, lam=cfg.gae_lambda
+        )
 
-        stats = ppo_update(model, optimizer, batch)
+        stats = ppo_update(
+            model=model,
+            optimizer=optimizer,
+            states=states,
+            actions=actions,
+            old_logp=logps_old,
+            advantages=advantages,
+            z_targets=z_targets,
+            clip_ratio=cfg.clip_ratio,
+            vf_coeff=cfg.vf_coeff,
+            ent_coeff=cfg.ent_coeff,
+            epochs=cfg.ppo_epochs,
+            batch_size=cfg.batch_size,
+        )
 
-        if episode % 10 == 0:
-            print(f"ep {episode} | {stats}")
+        avg_reward = rewards.mean().item()
+        print(
+            f"Episode {episode:04d}  steps={step_idx:4d}  "
+            f"avg_r_ext={avg_reward:.6f}  "
+            f"pol_loss={stats['policy_loss']:.4f}  "
+            f"val_loss={stats['value_loss']:.4f}"
+        )
+
 
 if __name__ == "__main__":
     main()
