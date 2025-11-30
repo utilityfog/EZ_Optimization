@@ -42,21 +42,21 @@ $\(R_{t+1}\)$ over $\([t, t+1]\)$.
 
 The **wealth transition** is
 
-$$
+$$\(
 \[
 W_{t+1}
 = (1 - c_t) W_t R_{t+1}.
 \]
-$$
+\)$$
 
 We may optionally clip $\(W_{t+1}\)$ below by a small floor $\(\varepsilon_W > 0\)$ for numerical stability.
 Running max wealth is updated as
 
-$$
+$$\(
 \[
 M_{t+1} := \max(M_t, W_{t+1}).
 \]
-$$
+\)$$
 
 ---
 
