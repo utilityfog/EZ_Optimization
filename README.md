@@ -191,6 +191,7 @@ There is no risky–weights head any more; $\(w_t\)$ is implicitly equal to $\(1
 ### 5.2 Exact log–probability of $\(c_t\)$
 
 Let
+
 $$\(
 \[
 y_c = \mathrm{logit}(c_t) = \log\frac{c_t}{1 - c_t}.
