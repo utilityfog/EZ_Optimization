@@ -25,8 +25,8 @@ This document **replaces CRRA** with **Epstein–Zin (EZ)** recursive preference
 We now consider a **single risky asset** (S&P) and remove portfolio optimization entirely.
 
 ### 1.1 Time and assets
-- Discrete time \(t = 0,1,2,\ldots,T-1\).
-- One risky asset with **gross** return \(R_{t+1} \in \mathbb{R}_{>0}\) between \(t\) and \(t+1\).
+- Discrete time $\(t = 0,1,2,\ldots,T-1\)$.
+- One risky asset with **gross** return $\(R_{t+1} \in \mathbb{R}_{>0}\)$ between $\(t\)$ and $\(t+1\)$.
 - No explicit risk–free asset and no portfolio weights – all *unconsumed* wealth is automatically invested in the risky asset.
 
 ### 1.2 Wealth, consumption, normalization
@@ -36,9 +36,9 @@ We now consider a **single risky asset** (S&P) and remove portfolio optimization
 
 ### 1.3 Budget identity (wealth transition)
 
-In the simplified world, after consuming \(C_t = c_t W_t\), the remaining wealth
-\((1 - c_t) W_t\) is fully invested in the risky asset, which realizes a gross return
-\(R_{t+1}\) over \([t, t+1]\).
+In the simplified world, after consuming $\(C_t = c_t W_t\)$, the remaining wealth
+$\((1 - c_t) W_t\)$ is fully invested in the risky asset, which realizes a gross return
+$\(R_{t+1}\)$ over $\([t, t+1]\)$.
 
 The **wealth transition** is
 
