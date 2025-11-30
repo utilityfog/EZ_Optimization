@@ -61,12 +61,26 @@ M_{t+1} := \max(M_t, W_{t+1}).
 ---
 
 ## 2) OBSERVATIONS, FEATURES, STATE (BASELINE PIPELINE)
-### 2.1 Observables at time \(t\)
-- $\(W_t\)$, $\(w_{t-1}\)$, and a causal feature vector $\(x_t \in \mathbb{R}^d\)$ built **only** from data $\(\le t\)$.
+### 2.1 Observables at time $\(t\)$
+- $\(W_t\)$ and a causal feature vector $\(x_t \in \mathbb{R}^d\)$ built **only** from data $\(\le t\)$.
 - Standardize $\(x_t\)$ via train-set $\((\mu,\sigma)\)$ to $\(\tilde x_t\)$ (store $\(\mu,\sigma\)$ from training only).
 
 ### 2.2 State to networks
-- **State:** $\(s_t := \mathrm{concat}\big( \tilde W_t, \tilde x_t, w_{t-1} \big) \in \mathbb{R}^{1+d+n}\)$ (fixed order).
+- **State:** $\(s_t := \mathrm{concat}\big( \tilde W_t, \tilde x_t \big) \in \mathbb{R}^{1+d+n}\)$ (fixed order).
+
+At time $\(t\)$ the agent observes:
+
+- Normalized wealth $\(\tilde W_t = W_t / M_t\)$.
+- A standardized feature vector $\(\tilde x_t \in \mathbb{R}^d\)$, built from the FracDiff pipeline and other signals, using only information up to time $\(t\)$.
+
+The **state** fed to the policy and critic is
+
+$$\(
+s_t := \mathrm{concat}\big(\tilde W_t,\; \tilde x_t\big)
+\in \mathbb{R}^{1 + d}.
+\)$$
+
+There is no $\(w_{t-1}\)$ term in the state any more, since there is no portfolio decision.
 
 ---
 
@@ -129,48 +143,73 @@ T^{(z)}_t := (1-\beta) C_t^{1-\frac{1}{\psi}} + \beta \Big(\hat y_{t+1}\Big)^{\f
 
 ## 5) ACTOR & CRITIC (Z-functions, distributions, exact log-probs)
 
+We now have a **single action dimension**: the consumption rate $\(c_t \in (0,1)\)$.
+
 **Dimensions and symbols used throughout this section**
-- Number of risky assets: $\(n \ge 1\)$.  Feature dimension: $\(d \ge 1\)$.
 - State at time $\(t\)$: $\(s_t \in \mathbb{R}^{1+d+n}\)$ is the concatenation
-  $\(s_t := \mathrm{concat}\big(\tilde W_t, \tilde x_t, w_{t-1}\big)\)$,
-  where $\(\tilde W_t = W_t/M_t\)$, $\(\tilde x_t\)$ is the standardized feature vector, and $\(w_{t-1}\in\mathbb{R}^n\)$ is the previous risky-weights vector on the simplex $\(\Delta^n\)$.
+  $\(s_t := \mathrm{concat}\big(\tilde W_t, \tilde x_t \big)\)$,
+  where $\(\tilde W_t = W_t/M_t\)$ and $\(\tilde x_t\)$ is the standardized feature vector.
 - Consumption fraction (action component): $\(c_t \in (0,1)\)$. Dollar consumption: $\(C_t := c_t W_t\)$.
-- Risky weights (action component): $\(w_t \in \Delta^n = \{u\in\mathbb{R}_{\ge 0}^n:\sum_i u_i=1\}\)$.
-- Hyperparameters for heads: $\(\sigma_{\min}>0\)$ (std floor), $\(\varepsilon_{\mathrm{dir}}>0\)$ (Dirichlet floor).
+- Hyperparameters for heads: $\(\sigma_{\min}>0\)$ (std floor).
 
 ### 5.1 Actor $\(f_\theta\)$
-Shared backbone on $\(s_t\)$ (MLP with chosen sizes/activations), followed by three heads:
+The actor takes $\(s_t \in \mathbb{R}^{1+d}\)$ and passes it through a shared backbone
+(e.g. an MLP) to produce parameters for a scalar Gaussian in a latent space:
 
-- **Consumption head (squashed Gaussian).**
-  - Pre-squash Normal parameters: mean $\(\mu_c \in \mathbb{R}\)$, log-std $\(\ell_c \in \mathbb{R}\)$, std $\(\sigma_c := \mathrm{softplus}(\ell_c)+\sigma_{\min}\)$.
-  - Sample pre-squash $\(y_c \sim \mathcal{N}(\mu_c,\sigma_c^2)\)$, then **squash** $\(c_t := \sigma(y_c)=1/(1+e^{-y_c})\in(0,1)\)$.
-  - Deterministic eval: $\(c_t := \sigma(\mu_c)\)$.
-
-- **Risky-weights head (Dirichlet).**
-  - Logits $\(z_w \in \mathbb{R}^n\)$; concentrations $\(\alpha := \mathrm{softplus}(z_w)+\varepsilon_{\mathrm{dir}}\in\mathbb{R}_{>0}^n\)$.
-  - Sample $\(w_t \sim \mathrm{Dir}(\alpha)\)$; deterministic eval $\(w_t := \alpha/\sum_i \alpha_i\)$.
-
-**Action log-probabilities (exact).**
-
-- Let $\(y_c := \mathrm{logit}(c_t) = \log\big(\tfrac{c_t}{1-c_t}\big)\)$. Then the change-of-variables gives
-
+- Pre–squash Normal parameters:
 $$\(
 \[
-\log p(c_t\mid s_t) = \log \mathcal{N}(y_c,\mu_c,\sigma_c^2) - \log \big(c_t(1-c_t)\big).
+\mu_c(s_t) \in \mathbb{R}, \quad
+\ell_c(s_t) \in \mathbb{R}, \quad
+\sigma_c(s_t) := \mathrm{softplus}(\ell_c) + \sigma_{\min}.
 \]
 \)$$
 
-- For $\(w_t\sim\mathrm{Dir}(\alpha)\)$:
-
+- Sample pre–squash variable
 $$\(
 \[
-\log p(w_t\mid s_t) = \log \Gamma \Big(\textstyle\sum_{i=1}^n \alpha_i\Big) - \sum_{i=1}^n \log \Gamma(\alpha_i) + \sum_{i=1}^n (\alpha_i-1)\log w_t[i].
+y_c \sim \mathcal{N}\big(\mu_c(s_t),\, \sigma_c(s_t)^2\big).
 \]
 \)$$
 
-- **Joint** log-prob used by PPO:
+- Squash to the action space via the sigmoid:
+$$\(
+\[
+c_t := \sigma(y_c) = \frac{1}{1 + e^{-y_c}} \in (0,1).
+\]
+\)$$
 
-$\(\log \pi_\theta(a_t\mid s_t) := \log p(c_t\mid s_t) + \log p(w_t\mid s_t)\)$.
+- Deterministic (evaluation) action is given by
+$$\(
+\[
+c_t^{\mathrm{det}} := \sigma\big(\mu_c(s_t)\big).
+\]
+\)$$
+
+There is no risky–weights head any more; $\(w_t\)$ is implicitly equal to $\(1\)$ on the single asset.
+
+### 5.2 Exact log–probability of $\(c_t\)$
+
+Let
+$$\(
+\[
+y_c = \mathrm{logit}(c_t) = \log\frac{c_t}{1 - c_t}.
+\]
+\)$$
+
+The log–probability under the squashed Gaussian is
+
+$$\(
+\[
+\log p(c_t \mid s_t)
+= \log \mathcal{N}\big(y_c;\, \mu_c(s_t), \sigma_c(s_t)^2\big)
+  - \log\big(c_t (1 - c_t)\big),
+\]
+\)$$
+
+where the first term is the Gaussian log–density of $\(y_c\)$ and the second term is the log–Jacobian of the sigmoid.
+
+This $\(\log p(c_t \mid s_t)\)$ is the **only** action log–probability used in PPO here.
 
 ### 5.3 Critic $\(g_\psi\)$ (two heads for EZ)
 The critic takes $\(s_t\)$ and outputs two scalars:
