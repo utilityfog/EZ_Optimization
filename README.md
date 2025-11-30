@@ -7,48 +7,67 @@
 This document **replaces CRRA** with **Epstein–Zin (EZ)** recursive preferences and **adds a Learnable Fractional Differencing (FracDiff) layer** in the feature pipeline, while preserving the **PPO + ICM** training stack and environment mechanics. It is **drop-in**: policy parameterization, buffers, rollout loop, exact log-probabilities, and PPO machinery remain intact. Only the **preference aggregator** (reward/value semantics) and **feature memory module** (FracDiff) change.
 
 **What stays the same (do not touch):**
-- Time/indexing, assets, returns, risk-free, turnover/transaction cost, budget identity.
-- Actor heads (consumption squashed Gaussian; risky weights Dirichlet/softmax), exact log-prob math.
+- Time/indexing, assets, returns, risk-free, ~~turnover/transaction cost~~, budget identity.
+- Actor heads (consumption squashed Gaussian; ~~risky weights Dirichlet/softmax~~), exact log-prob math. (No more portfolio optimization)
 - Critic backbone mechanics (but we output two EZ heads; see §5).
 - ICM encoder/forward (and optional inverse) and curiosity reward wiring.
 - PPO: ratio, clipping, GAE, epochs/minibatching, entropy, optimizers.
 - Data split, standardization, rollout collection, buffer contents.
 
 **What changes:**
-1) **Utility/Value:** CRRA is replaced by **Epstein–Zin** with a numerically stable target in \(z\)-space (§4–§6).  
+1) **Utility/Value:** CRRA is replaced by **Epstein–Zin** with a numerically stable target in \(z\)-space (§4–§6).
 2) **Features:** Insert **Learnable FracDiff** over returns before feature construction (§3).
 
 ---
 
-## 1) CORE DEFINITIONS (TIME, DATA, WEALTH, CONSUMPTION, BUDGET)
+### 1) Core definitions (time, single risky asset, wealth, consumption)
+
+We now consider a **single risky asset** (S&P) and remove portfolio optimization entirely.
+
 ### 1.1 Time and assets
-- Discrete time $\(t = 0,1,2,\ldots,T-1\)$ (episode length $T$).  
-- Number of risky assets $\(n \ge 1\)$.
-- Market data (known up to $\(t\)$ when acting):
-  - Risky **gross** returns: $\(R[t] \in \mathbb{R}^n\)$ (e.g., $1.01 = +1%$).
-  - Risk-free **gross** return: $\(R_f[t] \in \mathbb{R}\)$.
+- Discrete time \(t = 0,1,2,\ldots,T-1\).
+- One risky asset with **gross** return \(R_{t+1} \in \mathbb{R}_{>0}\) between \(t\) and \(t+1\).
+- No explicit risk–free asset and no portfolio weights – all *unconsumed* wealth is automatically invested in the risky asset.
 
 ### 1.2 Wealth, consumption, normalization
 - Wealth at start of step $\(t\)$: $\(W_t > 0\)$.
 - Consumption fraction (action): $\(c_t \in (0,1)\)$; **dollar consumption** $\(C_t := c_t \cdot W_t\)$.
 - Running max wealth $\(M_t := \max_{0\le \tau \le t} W_\tau\)$; normalized wealth $\(\tilde W_t := W_t / M_t \in (0,1]\)$.
 
-### 1.3 Portfolio, turnover, transaction cost
+~~### 1.3 Portfolio, turnover, transaction cost
 - Risky-asset weights (action): $\(w_t \in \Delta^n\)$ (simplex, nonnegative, $\(\sum_{i=1}^n w_t[i] = 1 \)$ ).  
 - Implicit cash weight: $\(w_{\text{cash},t} := 1 - \sum_{i=1}^n w_t[i]\)$ (nonnegative by construction).
 - Turnover: $\(\mathrm{turnover_t} := \lVert w_t - w_{t-1} \rVert_1\)$.
 - Transaction-cost coefficient: $\(\kappa \ge 0\)$.
-- Dollar cost: $\(\mathrm{TC}_t := \kappa \cdot W_t \cdot \mathrm{turnover}_t\)$ (paid immediately at $\(t\)$ ).
+- Dollar cost: $\(\mathrm{TC}_t := \kappa \cdot W_t \cdot \mathrm{turnover}_t\)$ (paid immediately at $\(t\)$ ).~~
 
-### 1.4 Budget identity (wealth transition)
-Let risky **excess** return $\(\tilde R[t+1] := R[t+1] - R_f[t+1]\cdot \mathbf{1}\)$.
+### 1.3 Budget identity (wealth transition)
+~~Let risky **excess** return $\(\tilde R[t+1] := R[t+1] - R_f[t+1]\cdot \mathbf{1}\)$.
 - Gross growth factor:
 $$\(
 \[
 G_{t+1} := (1 - c_t)*\big( R_f[t+1] + w_t^{\top} \tilde R[t+1] \big) - \kappa \lVert w_t - w_{t-1}\rVert_1.
 \]
 \)$$
-- Next wealth: $\(W_{t+1} := W_t \cdot G_{t+1}\)$. Safety floors may clip $\(G_{t+1}\)$ to $\(\varepsilon_g>0\)$.
+- Next wealth: $\(W_{t+1} := W_t \cdot G_{t+1}\)$. Safety floors may clip $\(G_{t+1}\)$ to $\(\varepsilon_g>0\)$.~~
+
+In the simplified world, after consuming \(C_t = c_t W_t\), the remaining wealth
+\((1 - c_t) W_t\) is fully invested in the risky asset, which realizes a gross return
+\(R_{t+1}\) over \([t, t+1]\).
+
+The **wealth transition** is
+
+\[
+W_{t+1}
+= (1 - c_t) W_t R_{t+1}.
+\]
+
+We may optionally clip \(W_{t+1}\) below by a small floor \(\varepsilon_W > 0\) for numerical stability.
+Running max wealth is updated as
+
+\[
+M_{t+1} := \max(M_t, W_{t+1}).
+\]
 
 ---
 

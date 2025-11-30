@@ -141,6 +141,5 @@ def build_processed(frac_d: float = 0.4, max_lag: int = 128, tol: float = 1e-2):
     print("features shape:", features_norm.shape)
     print("returns shape:", returns.shape)
 
-
 if __name__ == "__main__":
     build_processed()
