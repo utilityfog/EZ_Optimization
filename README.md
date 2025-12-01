@@ -289,7 +289,15 @@ G_{t+1} := (1 - c_t)\big( R_f[t+1] + w_t^{\top} \tilde R[t+1] \big) - \kappa \lV
 
 ## 7) REWARDS (EXTERNAL EZ FLOW, INTRINSIC ICM)
 
-**EZ parameters:** discount $\(\beta\in(0,1)\)$, risk aversion $\(\gamma>0\)$, EIS $\(\psi>0\)$.
+We use the Epstein–Zin flow term for external reward and the Intrinsic Curiosity Module (ICM) to supply an intrinsic shaping signal.
+
+**EZ parameters**
+- Discount \( \beta \in (0,1) \)
+- Risk aversion \( \gamma > 0 \)
+- Elasticity of intertemporal substitution (EIS) \( \psi > 0 \)
+- Consumption \( C_t = c_t W_t \)
+
+---
 
 ### 7.1 External reward (EZ flow term in $\(z\)$-space)
 
@@ -305,7 +313,7 @@ r_t^{\mathrm{ext}}
 
 This is the main objective that encourages good consumption timing.
 
-## 7.2 Intrinsic Curiosity Module (ICM) — complete specification
+### 7.2 Intrinsic Curiosity Module (ICM) — complete specification
 
 We define the ICM exactly and fully:
 
@@ -363,88 +371,112 @@ $$\(
 
 ### **Action embedding (scalar action)**
 
-Because the action is **only** consumption \(c_t\in(0,1)\), we embed it as:
+Because the action is **only** consumption $\(c_t\in(0,1)\)$, we embed it as:
 
+$$\(
 \[
 y_c = \mathrm{logit}(c_t) = \log\frac{c_t}{1 - c_t}.
 \]
+\)$$
 
 Then define:
 
+$$\(
 \[
 \psi(a_t) := \psi(c_t) := y_c \in \mathbb{R}^{1}.
 \]
+\)$$
 
 Dimensions: action embedding is 1-dimensional.
 
 ---
 
 ### **Forward dynamics model**  
-Maps \((\phi(s_t), \psi(a_t))\) into a prediction of \(\phi(s_{t+1})\).
+Maps $\((\phi(s_t), \psi(a_t))\)$ into a prediction of $\(\phi(s_{t+1})\)$.
 
 Input dimension to forward model:
+
+$$\(
 \[
 m + 1.
 \]
+\)$$
 
 Forward model layers:
 
+$$\(
 \[
 u1 = \mathrm{GELU}\big(W_{f1}\,\mathrm{concat}(\phi_t, \psi(c_t)) + b_{f1}\big),
 \quad W_{f1}\in\mathbb{R}^{F\times(m+1)}.
 \]
+\)$$
 
+$$\(
 \[
 u2 = \mathrm{GELU}(W_{f2}u1 + b_{f2}),
 \quad W_{f2}\in\mathbb{R}^{F\times F}.
 \]
+\)$$
 
+$$\(
 \[
 \hat \phi_{t+1} := W_{fo}u2 + b_{fo},
 \quad W_{fo} \in \mathbb{R}^{m\times F}.
 \]
+\)$$
 
-There is **no inverse model** in the consumption-only version.  
-If desired, the inverse model can be reintroduced later.
+There is **no inverse model** in the consumption-only version.
 
 ---
 
 ### **Intrinsic reward**
 
 Given:
-- Encoded next state \( \phi_{t+1} \)
-- Predicted next state \( \hat\phi_{t+1} \)
+- Encoded next state $\( \phi_{t+1} \)$
+- Predicted next state $\( \hat\phi_{t+1} \)$
 
 The intrinsic reward is:
 
+$$\(
 \[
 r_t^{\mathrm{int}}
 := \eta \left\| \phi_{t+1} - \hat\phi_{t+1} \right\|^2_2,
 \]
-with a small scale factor \( \eta > 0 \) (e.g., \(10^{-3}\)).
+\)$$
+
+with a small scale factor $\( \eta > 0 \)$ (e.g., $\(10^{-3}\)$).
 
 ---
 
 ### **ICM losses**
 
 **Forward loss**:
+
+$$\(
 \[
 L_{\mathrm{fwd}}(\omega)
 := \left\|\phi_{t+1} - \hat\phi_{t+1}\right\|_2^2.
 \]
+\)$$
 
 **Inverse loss**:
+
+$$\(
 \[
 L_{\mathrm{inv}} := 0
 \]
-since we removed portfolio weights and do not reconstruct \(w_t\).  
+\)$$
+
+since we removed portfolio weights and do not reconstruct $\(w_t\)$.  
 The action is 1-dimensional and directly known, so inverse dynamics is unnecessary.
 
 Total ICM loss:
 
+$$\(
 \[
 L_{\mathrm{ICM}} = L_{\mathrm{fwd}}.
 \]
+\)$$
 
 ---
 
@@ -453,57 +485,175 @@ $\(r_t := r_t^{\mathrm{ext}} + r_t^{\mathrm{int}}\)$.
 
 ---
 
-### 8) Advantages, EZ targets, and losses (no Dirichlet, Gaussian entropy only)
+## 8) Advantages, EZ targets, and losses (consumption-only)
 
-The EZ one–step bootstrap target for the \(z\)–head is unchanged:
+All variables used below are defined here or earlier sections.
+
+---
+
+### 8.1 EZ one-step target in $\(z\)$-space
+
+We have two critic heads:
+
+- $\( \hat z_t \approx z(V_t) := V_t^{1 - \frac{1}{\psi}} \)$
+- $\( \hat y_t \approx y(V_t) := V_t^{1 - \gamma} \)$
+
+The one-step EZ bootstrap target is:
+
+$$\(
+\[
+T_{t}^{(z)}
+= (1 - \beta) C_t^{\,1 - \frac{1}{\psi}}
+  + \beta \left( \hat y_{t+1} \right)^{\frac{1 - \frac{1}{\psi}}{1 - \gamma}}.
+\]
+\)$$
+
+All terms are fully defined:
+- $\(C_t = c_t W_t\)$ is consumption
+- $\(\hat y_{t+1}\)$ comes from the critic applied to next state
+- exponents come from EZ preference structure
+
+---
+
+### 8.2 Value loss (z-head)
+
+$$\(
+\[
+L_{\mathrm{value}} = \tfrac{1}{2}\left(\hat z_t - T_{t}^{(z)}\right)^2.
+\]
+\)$$
+
+---
+
+## 8.3 TD residual in $\(z\)$-space and GAE
+
+Define the **combined reward**:
+
+$$\(
+\[
+r_t = r_t^{\mathrm{ext}} + r_t^{\mathrm{int}}
+\]
+\)$$
+
+and the **EZ temporal-difference residual**:
+
+$$\(
+\[
+\delta_t^{\mathrm{EZ}}
+:= r_t + \beta \left(T_{t}^{(z)} - r_t^{\mathrm{ext}}\right) - \hat z_t.
+\]
+\)$$
+
+This matches the structure of the general EZ TD residual while incorporating intrinsic reward.
+
+### **Generalized Advantage Estimation (GAE)**
+
+Let $\( \lambda \in [0,1] \)$ be the GAE parameter.  
+Compute the advantages by backward recursion:
+
+$$\(
+\[
+\tilde A_t
+= \delta_t^{\mathrm{EZ}}
++ (\beta\lambda)\,\delta_{t+1}^{\mathrm{EZ}}
++ (\beta\lambda)^2\,\delta_{t+2}^{\mathrm{EZ}}
++ \cdots
+\]
+\)$$
+
+Practical implementation uses backward iteration over a rollout.  
+We normalize \( \tilde A_t \) to mean 0 and variance 1 in each minibatch.
+
+---
+
+## 8.4′ PPO clipped policy loss (consumption-only)
+
+Let:
+
+- \( \log\pi_{\theta_{\mathrm{old}}}(c_t|s_t) \) be the stored behavior log-prob.
+- \( \log\pi_{\theta}(c_t|s_t) \) be recomputed with the current actor.
+- Importance ratio:
 
 \[
-T^{(z)}_t
-= (1 - \beta) C_t^{1 - \frac{1}{\psi}}
-  + \beta \big(\hat y_{t+1}\big)^{\frac{1 - \frac{1}{\psi}}{1 - \gamma}}.
+r_t(\theta) := 
+\exp\left(\log\pi_\theta(c_t|s_t)
+          - \log\pi_{\theta_{\mathrm{old}}}(c_t|s_t)\right).
 \]
 
-The value loss is
+- Clipping parameter \( \varepsilon\in(0,1) \).
+
+The PPO objective (to **minimize**) is:
 
 \[
-L_{\mathrm{value}} = \tfrac{1}{2} \big(\hat z_t - T^{(z)}_t\big)^2.
+L_{\mathrm{PPO}}
+= -\mathbb{E}_t\left[
+\min\big(
+r_t(\theta)\tilde A_t,\;
+\mathrm{clip}(r_t(\theta),1-\varepsilon,1+\varepsilon)\tilde A_t
+\big)
+\right].
 \]
 
-We compute TD residuals in \(z\)–space and apply GAE exactly as before.  
-The **policy loss** is the standard PPO clipped objective using the scalar log–prob
-\(\log p(c_t \mid s_t)\).
+---
 
-#### Entropy term (only the Gaussian head)
+## 8.5 Entropy term (Gaussian action only)
 
-There is no Dirichlet entropy any more. The entropy of the pre–squash Normal
-\(y_c \sim \mathcal{N}(\mu_c, \sigma_c^2)\) is
+The actor samples
+
+\[
+y_c \sim \mathcal{N}(\mu_c(s_t), \sigma_c(s_t)^2)
+\]
+
+before applying the sigmoid.
+
+Entropy of a Normal:
 
 \[
 H_c = \tfrac{1}{2}\log\big(2\pi e \sigma_c^2\big).
 \]
 
-We use the entropy loss
+We encourage exploration by adding the entropy term:
 
 \[
-L_{\mathrm{ent}} = - H_c,
+L_{\mathrm{ent}} := - H_c.
 \]
 
-weighted by some coefficient \(\beta_{\mathrm{ent}} > 0\).
+There is no Dirichlet entropy here since we removed risky-weight allocations.
 
-#### Total loss
+---
 
-If \(L_{\mathrm{PPO}}\) is the clipped policy loss, \(L_{\mathrm{ICM}}\) the ICM loss, and
-\(c_v, \beta_{\mathrm{ent}}, c_{\mathrm{icm}}\) are scalar weights, the final training loss is
+## 8.6 ICM loss
+
+As defined in §7.2:
+
+\[
+L_{\mathrm{ICM}} = L_{\mathrm{fwd}}
+= \left\|\phi_{t+1} - \hat\phi_{t+1}\right\|_2^2.
+\]
+
+The inverse loss is zero in consumption-only and can be enabled later if desired.
+
+---
+
+## 8.7′ Final training loss
+
+Define scalar weighting hyperparameters:
+
+- \(c_v > 0\): value loss weight
+- \(\beta_{\mathrm{ent}} > 0\): entropy loss weight
+- \(c_{\mathrm{icm}} > 0\): curiosity loss weight
+
+The full objective is:
 
 \[
 L_{\mathrm{total}}
 = L_{\mathrm{PPO}}
 + c_v L_{\mathrm{value}}
-+ \beta_{\mathrm{ent}} L_{\mathrm{ent}}
-+ c_{\mathrm{icm}} L_{\mathrm{ICM}}.
++ \beta_{\mathrm{ent}}\, L_{\mathrm{ent}}
++ c_{\mathrm{icm}}\, L_{\mathrm{ICM}}.
 \]
 
-All other PPO and GAE mechanics (ratio, clipping, minibatching, epochs, optimizers) remain exactly as in the original recipe.
+All PPO mechanics (clipping, minibatching, epochs, Adam, etc.) remain exactly standard.
 
 ## 8) ADVANTAGES, TARGETS, AND LOSSES (EZ version)
 
