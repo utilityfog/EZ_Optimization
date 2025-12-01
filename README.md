@@ -76,8 +76,7 @@ At time $\(t\)$ the agent observes:
 The **state** fed to the policy and critic is
 
 $$\(
-s_t := \mathrm{concat}\big(\tilde W_t,\; \tilde x_t\big)
-\in \mathbb{R}^{1 + d}.
+s_t := \mathrm{concat}\big(\tilde W_t, \tilde x_t\big) \in \mathbb{R}^{1 + d}.
 \)$$
 
 There is no $\(w_{t-1}\)$ term in the state any more, since there is no portfolio decision.
