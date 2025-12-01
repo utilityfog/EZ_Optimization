@@ -293,51 +293,217 @@ G_{t+1} := (1 - c_t)\big( R_f[t+1] + w_t^{\top} \tilde R[t+1] \big) - \kappa \lV
 
 ### 7.1 External reward (EZ flow term in $\(z\)$-space)
 
-$$\(
-\[
-r_t^{\mathrm{ext}} := (1-\beta)C_t^{1-\frac{1}{\psi}}.
-\]
-\)$$
-
-### 7.2 Intrinsic curiosity reward (ICM) — every variable defined
-
-**Networks and dimensions**
-- Choose embedding dims $\(m\)$ ( e.g., $\(64\)$ ), hidden widths $\(E,F\)$ ( e.g., $\(128\)$ ).
-- **State encoder** $\(\phi_\omega:\mathbb{R}^{1+d+n}\to\mathbb{R}^m\)$:
-  - $\(e1 := \mathrm{GELU}(W_{e1}s_t+b_{e1})\)$, $\(W_{e1}\in\mathbb{R}^{E\times(1+d+n)}\)$.
-  - $\(e2 := \mathrm{GELU}(W_{e2}e1+b_{e2})\)$, $\(W_{e2}\in\mathbb{R}^{E\times E}\)$.
-  - $\(\phi(s_t) := W_{eo}e2 + b_{eo} \in \mathbb{R}^m\)$.
-- **Action embedding** for continuous $\(a_t=(c_t,w_t)\)$:
-  - $\(y_c := \mathrm{logit}(c_t)=\log(\tfrac{c_t}{1-c_t})\)$.
-  - $\(\psi(a_t) := \mathrm{concat}(y_c, w_t) \in \mathbb{R}^{1+n}\)$.
-- **Forward model** $\(f_\omega:\mathbb{R}^m\times\mathbb{R}^{1+n}\to\mathbb{R}^m\)$:
-  - $\(u1 := \mathrm{GELU}\big(W_{f1}\mathrm{concat}(\phi(s_t),\psi(a_t))+b_{f1}\big)\)$, $\(W_{f1}\in\mathbb{R}^{F\times(m+1+n)}\)$.
-  - $\(u2 := \mathrm{GELU}(W_{f2}u1+b_{f2})\)$, $\(W_{f2}\in\mathbb{R}^{F\times F}\)$.
-  - $\(\hat\phi_{t+1} := f(\phi(s_t),a_t) := W_{fo}u2+b_{fo} \in \mathbb{R}^m\)$.
-- **(Optional) Inverse model** $\(g_\omega:\mathbb{R}^m\times\mathbb{R}^m\to\)$ action params:
-  - Given $\(\phi(s_t)\), \(\phi(s_{t+1})\)$, predict $\(\hat\mu_c,\hat\sigma_c\)$ for $\(y_c\)$ and $\(\hat\alpha\in\mathbb{R}_{>0}^n\)$ for Dirichlet over $\(w_t\)$.
-
-**Intrinsic reward and ICM losses**
-- Embeddings: $\(\phi_t:=\phi(s_t)\)$, $\(\phi_{t+1}:=\phi(s_{t+1})\)$, prediction $\(\hat\phi_{t+1}\)$.
-- Reward scale $\(\eta>0\)$ ( e.g., $\(10^{-3}\)$ ).
-- Intrinsic reward:
+The **external reward** at time $\(t\)$ is the EZ flow term in $\(z\)$–space, depending only on consumption:
 
 $$\(
 \[
-r_t^{\mathrm{int}} := \eta \big\lVert \phi_{t+1} - \hat \phi_{t+1} \big\rVert_2^2.
+r_t^{\mathrm{ext}}
+= (1 - \beta)\, C_t^{\,1 - \frac{1}{\psi}}
+= (1 - \beta)\, (c_t W_t)^{\,1 - \frac{1}{\psi}}.
 \]
 \)$$
 
-- Forward loss: $\(L_{\mathrm{fwd}}(\omega) := \big\lVert \phi_{t+1} - \hat\phi_{t+1} \big\rVert_2^2\)$.
-- Inverse loss (optional):
-  - $\(L_{\mathrm{inv}}(\omega) := -\big[\log \mathcal{N}(y_c\hat\mu_c,\hat\sigma_c^2)\ +\ \log \mathrm{Dir}(w_t\hat\alpha)\big]\)$.
-- Combine with weight $\(\lambda_{\mathrm{inv}}\ge 0\)$:
-  - $\(L_{\mathrm{ICM}} := L_{\mathrm{fwd}} + \lambda_{\mathrm{inv}} L_{\mathrm{inv}}\)$.
+This is the main objective that encourages good consumption timing.
+
+## 7.2 Intrinsic Curiosity Module (ICM) — complete specification
+
+We define the ICM exactly and fully:
+
+### **Network dimensions**
+Let:
+- Feature dimension $\(d\)$
+- State dimension $\(1+d\)$ since state is $\(\mathrm{concat}(\tilde W_t, \tilde x_t)\)$
+- State-embedding dimension $\(m\)$ (e.g., 64)
+- Hidden widths for ICM networks:
+  - Encoder hidden width $\(E\)$ (e.g., 128)
+  - Forward-model hidden width $\(F\)$ (e.g., 128)
+
+Define the state encoder:
+
+$$\(
+\[
+\phi_\omega:\mathbb{R}^{1+d}\to\mathbb{R}^m.
+\]
+\)$$
+
+### **State encoder network**
+Given state $\(s_t \in \mathbb{R}^{1+d}\)$:
+
+$$\(
+\[
+e1 = \mathrm{GELU}(W_{e1}s_t + b_{e1}), \quad
+W_{e1}\in\mathbb{R}^{E\times (1+d)}.
+\]
+\)$$
+
+$$\(
+\[
+e2 = \mathrm{GELU}(W_{e2}e1 + b_{e2}), \quad
+W_{e2} \in\mathbb{R}^{E\times E}.
+\]
+\)$$
+
+$$\(
+\[
+\phi(s_t) = W_{eo} e2 + b_{eo},\quad
+W_{eo}\in \mathbb{R}^{m\times E}.
+\]
+\)$$
+
+Define:
+
+$$\(
+\[
+\phi_t := \phi(s_t),\qquad
+\phi_{t+1} := \phi(s_{t+1}).
+\]
+\)$$
+
+---
+
+### **Action embedding (scalar action)**
+
+Because the action is **only** consumption \(c_t\in(0,1)\), we embed it as:
+
+\[
+y_c = \mathrm{logit}(c_t) = \log\frac{c_t}{1 - c_t}.
+\]
+
+Then define:
+
+\[
+\psi(a_t) := \psi(c_t) := y_c \in \mathbb{R}^{1}.
+\]
+
+Dimensions: action embedding is 1-dimensional.
+
+---
+
+### **Forward dynamics model**  
+Maps \((\phi(s_t), \psi(a_t))\) into a prediction of \(\phi(s_{t+1})\).
+
+Input dimension to forward model:
+\[
+m + 1.
+\]
+
+Forward model layers:
+
+\[
+u1 = \mathrm{GELU}\big(W_{f1}\,\mathrm{concat}(\phi_t, \psi(c_t)) + b_{f1}\big),
+\quad W_{f1}\in\mathbb{R}^{F\times(m+1)}.
+\]
+
+\[
+u2 = \mathrm{GELU}(W_{f2}u1 + b_{f2}),
+\quad W_{f2}\in\mathbb{R}^{F\times F}.
+\]
+
+\[
+\hat \phi_{t+1} := W_{fo}u2 + b_{fo},
+\quad W_{fo} \in \mathbb{R}^{m\times F}.
+\]
+
+There is **no inverse model** in the consumption-only version.  
+If desired, the inverse model can be reintroduced later.
+
+---
+
+### **Intrinsic reward**
+
+Given:
+- Encoded next state \( \phi_{t+1} \)
+- Predicted next state \( \hat\phi_{t+1} \)
+
+The intrinsic reward is:
+
+\[
+r_t^{\mathrm{int}}
+:= \eta \left\| \phi_{t+1} - \hat\phi_{t+1} \right\|^2_2,
+\]
+with a small scale factor \( \eta > 0 \) (e.g., \(10^{-3}\)).
+
+---
+
+### **ICM losses**
+
+**Forward loss**:
+\[
+L_{\mathrm{fwd}}(\omega)
+:= \left\|\phi_{t+1} - \hat\phi_{t+1}\right\|_2^2.
+\]
+
+**Inverse loss**:
+\[
+L_{\mathrm{inv}} := 0
+\]
+since we removed portfolio weights and do not reconstruct \(w_t\).  
+The action is 1-dimensional and directly known, so inverse dynamics is unnecessary.
+
+Total ICM loss:
+
+\[
+L_{\mathrm{ICM}} = L_{\mathrm{fwd}}.
+\]
+
+---
 
 ### 7.3 Total reward used by PPO
 $\(r_t := r_t^{\mathrm{ext}} + r_t^{\mathrm{int}}\)$.
 
 ---
+
+### 8) Advantages, EZ targets, and losses (no Dirichlet, Gaussian entropy only)
+
+The EZ one–step bootstrap target for the \(z\)–head is unchanged:
+
+\[
+T^{(z)}_t
+= (1 - \beta) C_t^{1 - \frac{1}{\psi}}
+  + \beta \big(\hat y_{t+1}\big)^{\frac{1 - \frac{1}{\psi}}{1 - \gamma}}.
+\]
+
+The value loss is
+
+\[
+L_{\mathrm{value}} = \tfrac{1}{2} \big(\hat z_t - T^{(z)}_t\big)^2.
+\]
+
+We compute TD residuals in \(z\)–space and apply GAE exactly as before.  
+The **policy loss** is the standard PPO clipped objective using the scalar log–prob
+\(\log p(c_t \mid s_t)\).
+
+#### Entropy term (only the Gaussian head)
+
+There is no Dirichlet entropy any more. The entropy of the pre–squash Normal
+\(y_c \sim \mathcal{N}(\mu_c, \sigma_c^2)\) is
+
+\[
+H_c = \tfrac{1}{2}\log\big(2\pi e \sigma_c^2\big).
+\]
+
+We use the entropy loss
+
+\[
+L_{\mathrm{ent}} = - H_c,
+\]
+
+weighted by some coefficient \(\beta_{\mathrm{ent}} > 0\).
+
+#### Total loss
+
+If \(L_{\mathrm{PPO}}\) is the clipped policy loss, \(L_{\mathrm{ICM}}\) the ICM loss, and
+\(c_v, \beta_{\mathrm{ent}}, c_{\mathrm{icm}}\) are scalar weights, the final training loss is
+
+\[
+L_{\mathrm{total}}
+= L_{\mathrm{PPO}}
++ c_v L_{\mathrm{value}}
++ \beta_{\mathrm{ent}} L_{\mathrm{ent}}
++ c_{\mathrm{icm}} L_{\mathrm{ICM}}.
+\]
+
+All other PPO and GAE mechanics (ratio, clipping, minibatching, epochs, optimizers) remain exactly as in the original recipe.
 
 ## 8) ADVANTAGES, TARGETS, AND LOSSES (EZ version)
 
