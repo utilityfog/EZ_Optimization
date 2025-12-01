@@ -244,7 +244,7 @@ At time $\(t\)$, given state $\(s_t\)$ and sampled consumption rate $\(c_t\)$, t
 
   $$\(
   \[
-  W_{t+1} = W_t^{\mathrm{after}} \, R_{t+1} = (1 - c_t) W_t R_{t+1}.
+  W_{t+1} = W_t^{\mathrm{after}} R_{t+1} = (1 - c_t) W_t R_{t+1}.
   \]
   \)$$
 
