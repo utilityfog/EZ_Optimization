@@ -444,7 +444,7 @@ r_t^{\mathrm{int}}
 \]
 \)$$
 
-with a small scale factor $\( \eta > 0 \)$ (e.g., $\(10^{-3}\)$).
+with a small scale factor $\( \eta > 0 \)$ (e.g., $\(10^{-3}\)$ ).
 
 ---
 
@@ -502,9 +502,7 @@ The one-step EZ bootstrap target is:
 
 $$\(
 \[
-T_{t}^{(z)}
-= (1 - \beta) C_t^{\,1 - \frac{1}{\psi}}
-  + \beta \left( \hat y_{t+1} \right)^{\frac{1 - \frac{1}{\psi}}{1 - \gamma}}.
+T_{t}^{(z)} = (1 - \beta) C_t^{\,1 - \frac{1}{\psi}} + \beta \left( \hat y_{t+1} \right)^{\frac{1 - \frac{1}{\psi}}{1 - \gamma}}.
 \]
 \)$$
 
@@ -525,7 +523,7 @@ L_{\mathrm{value}} = \tfrac{1}{2}\left(\hat z_t - T_{t}^{(z)}\right)^2.
 
 ---
 
-## 8.3 TD residual in $\(z\)$-space and GAE
+### 8.3 TD residual in $\(z\)$-space and GAE
 
 Define the **combined reward**:
 
@@ -546,7 +544,7 @@ $$\(
 
 This matches the structure of the general EZ TD residual while incorporating intrinsic reward.
 
-### **Generalized Advantage Estimation (GAE)**
+#### **Generalized Advantage Estimation (GAE)**
 
 Let $\( \lambda \in [0,1] \)$ be the GAE parameter.  
 Compute the advantages by backward recursion:
@@ -576,9 +574,7 @@ Let:
 
 $$\(
 \[
-r_t(\theta) := 
-\exp\left(\log\pi_\theta(c_t|s_t)
-          - \log\pi_{\theta_{\mathrm{old}}}(c_t|s_t)\right).
+r_t(\theta) := \exp\left(\log\pi_\theta(c_t|s_t) - \log\pi_{\theta_{\mathrm{old}}}(c_t|s_t)\right).
 \]
 \)$$
 
