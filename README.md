@@ -202,7 +202,7 @@ The log–probability under the squashed Gaussian is
 
 $$\(
 \[
-\log p(c_t \mid s_t) = \log \mathcal{N}\big(y_c;\, \mu_c(s_t), \sigma_c(s_t)^2\big) - \log\big(c_t (1 - c_t)\big),
+\log p(c_t \mid s_t) = \log \mathcal{N}\big(y_c, \mu_c(s_t), \sigma_c(s_t)^2\big) - \log\big(c_t (1 - c_t)\big),
 \]
 \)$$
 
