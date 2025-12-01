@@ -263,6 +263,7 @@ At time $\(t\)$, given state $\(s_t\)$ and sampled consumption rate $\(c_t\)$, t
   The feature pipeline (including FracDiff) produces the next standardized feature vector $\(\tilde x_{t+1}\)$ from market data up to time $\(t+1\)$.
 
   The next state is
+
   $$\(
   \[
   s_{t+1} = \mathrm{concat}\big(\tilde W_{t+1}, \tilde x_{t+1}\big).
@@ -283,11 +284,6 @@ G_{t+1} := (1 - c_t)\big( R_f[t+1] + w_t^{\top} \tilde R[t+1] \big) - \kappa \lV
 \)$$
 
 - Next wealth: $\(W_{t+1} := W_t \cdot G_{t+1}\)$. Safety floor may clip $\(G_{t+1}\ge\varepsilon_g>0\)$.
-
-**State update**
-- Update running max $\(M_{t+1} := \max(M_t,W_{t+1})\)$.
-- Build next features $\(\tilde x_{t+1}\)$ (post-FracDiff pipeline) and set
-  $\(s_{t+1} := \mathrm{concat}(W_{t+1}/M_{t+1}, \tilde x_{t+1}, w_t)\)$.
 
 ---
 
