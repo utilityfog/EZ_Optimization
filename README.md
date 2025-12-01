@@ -168,7 +168,7 @@ $$\(
 - Sample pre–squash variable
 $$\(
 \[
-y_c \sim \mathcal{N}\big(\mu_c(s_t),\, \sigma_c(s_t)^2\big).
+y_c \sim \mathcal{N}\big(\mu_c(s_t), \sigma_c(s_t)^2\big).
 \]
 \)$$
 
