@@ -292,10 +292,10 @@ G_{t+1} := (1 - c_t)\big( R_f[t+1] + w_t^{\top} \tilde R[t+1] \big) - \kappa \lV
 We use the Epstein–Zin flow term for external reward and the Intrinsic Curiosity Module (ICM) to supply an intrinsic shaping signal.
 
 **EZ parameters**
-- Discount \( \beta \in (0,1) \)
-- Risk aversion \( \gamma > 0 \)
-- Elasticity of intertemporal substitution (EIS) \( \psi > 0 \)
-- Consumption \( C_t = c_t W_t \)
+- Discount $\( \beta \in (0,1) \)$
+- Risk aversion $\( \gamma > 0 \)$
+- Elasticity of intertemporal substitution (EIS) $\( \psi > 0 \)$
+- Consumption $\( C_t = c_t W_t \)$
 
 ---
 
@@ -562,28 +562,31 @@ $$\(
 \)$$
 
 Practical implementation uses backward iteration over a rollout.  
-We normalize \( \tilde A_t \) to mean 0 and variance 1 in each minibatch.
+We normalize $\( \tilde A_t \)$ to mean 0 and variance 1 in each minibatch.
 
 ---
 
-## 8.4′ PPO clipped policy loss (consumption-only)
+## 8.4 PPO clipped policy loss (consumption-only)
 
 Let:
 
-- \( \log\pi_{\theta_{\mathrm{old}}}(c_t|s_t) \) be the stored behavior log-prob.
-- \( \log\pi_{\theta}(c_t|s_t) \) be recomputed with the current actor.
+- $\( \log\pi_{\theta_{\mathrm{old}}}(c_t|s_t) \)$ be the stored behavior log-prob.
+- $\( \log\pi_{\theta}(c_t|s_t) \)$ be recomputed with the current actor.
 - Importance ratio:
 
+$$\(
 \[
 r_t(\theta) := 
 \exp\left(\log\pi_\theta(c_t|s_t)
           - \log\pi_{\theta_{\mathrm{old}}}(c_t|s_t)\right).
 \]
+\)$$
 
-- Clipping parameter \( \varepsilon\in(0,1) \).
+- Clipping parameter $\( \varepsilon\in(0,1) \)$.
 
 The PPO objective (to **minimize**) is:
 
+$$\(
 \[
 L_{\mathrm{PPO}}
 = -\mathbb{E}_t\left[
@@ -593,6 +596,7 @@ r_t(\theta)\tilde A_t,\;
 \big)
 \right].
 \]
+\)$$
 
 ---
 
@@ -600,23 +604,29 @@ r_t(\theta)\tilde A_t,\;
 
 The actor samples
 
+$$\(
 \[
 y_c \sim \mathcal{N}(\mu_c(s_t), \sigma_c(s_t)^2)
 \]
+\)$$
 
 before applying the sigmoid.
 
 Entropy of a Normal:
 
+$$\(
 \[
 H_c = \tfrac{1}{2}\log\big(2\pi e \sigma_c^2\big).
 \]
+\)$$
 
 We encourage exploration by adding the entropy term:
 
+$$\(
 \[
 L_{\mathrm{ent}} := - H_c.
 \]
+\)$$
 
 There is no Dirichlet entropy here since we removed risky-weight allocations.
 
@@ -626,25 +636,28 @@ There is no Dirichlet entropy here since we removed risky-weight allocations.
 
 As defined in §7.2:
 
+$$\(
 \[
 L_{\mathrm{ICM}} = L_{\mathrm{fwd}}
 = \left\|\phi_{t+1} - \hat\phi_{t+1}\right\|_2^2.
 \]
+\)$$
 
 The inverse loss is zero in consumption-only and can be enabled later if desired.
 
 ---
 
-## 8.7′ Final training loss
+## 8.7 Final training loss
 
 Define scalar weighting hyperparameters:
 
-- \(c_v > 0\): value loss weight
-- \(\beta_{\mathrm{ent}} > 0\): entropy loss weight
-- \(c_{\mathrm{icm}} > 0\): curiosity loss weight
+- $\(c_v > 0\)$: value loss weight
+- $\(\beta_{\mathrm{ent}} > 0\)$: entropy loss weight
+- $\(c_{\mathrm{icm}} > 0\)$: curiosity loss weight
 
 The full objective is:
 
+$$\(
 \[
 L_{\mathrm{total}}
 = L_{\mathrm{PPO}}
@@ -652,8 +665,7 @@ L_{\mathrm{total}}
 + \beta_{\mathrm{ent}}\, L_{\mathrm{ent}}
 + c_{\mathrm{icm}}\, L_{\mathrm{ICM}}.
 \]
-
-All PPO mechanics (clipping, minibatching, epochs, Adam, etc.) remain exactly standard.
+\)$$
 
 ## 8) ADVANTAGES, TARGETS, AND LOSSES (EZ version)
 
