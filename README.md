@@ -224,45 +224,54 @@ At time $\(t\)$, given state $\(s_t\)$ and sampled consumption rate $\(c_t\)$, t
 
 1. **Consumption and wealth evolution**
 
-   Dollar consumption:
-   $$\(
-   \[
-   C_t = c_t W_t.
-   \]
-   \)$$
+  Dollar consumption:
 
-   Remaining wealth:
-   \[
-   W_t^{\mathrm{after}} = (1 - c_t) W_t.
-   \]
+  $$\(
+  \[
+  C_t = c_t W_t.
+  \]
+  \)$$
 
-   Apply the risky asset gross return \(R_{t+1}\):
+  Remaining wealth:
 
-   \[
-   W_{t+1} = W_t^{\mathrm{after}} \, R_{t+1}
-           = (1 - c_t) W_t R_{t+1}.
-   \]
+  $$\(
+  \[
+  W_t^{\mathrm{after}} = (1 - c_t) W_t.
+  \]
+  \)$$
 
-   Optionally clip \(W_{t+1} \ge \varepsilon_W\) if needed for numerical stability.
+  Apply the risky asset gross return $\(R_{t+1}\)$:
+
+  $$\(
+  \[
+  W_{t+1} = W_t^{\mathrm{after}} \, R_{t+1} = (1 - c_t) W_t R_{t+1}.
+  \]
+  \)$$
+
+  Optionally clip $\(W_{t+1} \ge \varepsilon_W\)$ if needed for numerical stability.
 
 2. **Running max and next state**
 
-   \[
-   M_{t+1} = \max(M_t, W_{t+1}),
-   \quad
-   \tilde W_{t+1} = \frac{W_{t+1}}{M_{t+1}}.
-   \]
+  $$\(
+  \[
+  M_{t+1} = \max(M_t, W_{t+1}),
+  \quad
+  \tilde W_{t+1} = \frac{W_{t+1}}{M_{t+1}}.
+  \]
+  \)$$
 
-   The feature pipeline (including FracDiff) produces the next standardized feature vector \(\tilde x_{t+1}\) from market data up to time \(t+1\).
+  The feature pipeline (including FracDiff) produces the next standardized feature vector $\(\tilde x_{t+1}\)$ from market data up to time $\(t+1\)$.
 
-   The next state is
-   \[
-   s_{t+1} = \mathrm{concat}\big(\tilde W_{t+1}, \tilde x_{t+1}\big).
-   \]
+  The next state is
+  $$\(
+  \[
+  s_{t+1} = \mathrm{concat}\big(\tilde W_{t+1}, \tilde x_{t+1}\big).
+  \]
+  \)$$
 
 3. **Termination**
 
-   Episodes end when \(t = T - 1\) (or when data runs out).
+   Episodes end when $\(t = T - 1\)$ (or when data runs out).
 
 **Wealth transition**
 - Gross growth factor:
