@@ -651,11 +651,7 @@ The full objective is:
 
 $$\(
 \[
-L_{\mathrm{total}}
-= L_{\mathrm{PPO}}
-+ c_v L_{\mathrm{value}}
-+ \beta_{\mathrm{ent}}\, L_{\mathrm{ent}}
-+ c_{\mathrm{icm}}\, L_{\mathrm{ICM}}.
+L_{\mathrm{total}} = L_{\mathrm{PPO}} + c_v L_{\mathrm{value}} + \beta_{\mathrm{ent}} L_{\mathrm{ent}} + c_{\mathrm{icm}} L_{\mathrm{ICM}}.
 \]
 \)$$
 
