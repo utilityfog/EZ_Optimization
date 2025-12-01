@@ -551,11 +551,7 @@ Compute the advantages by backward recursion:
 
 $$\(
 \[
-\tilde A_t
-= \delta_t^{\mathrm{EZ}}
-+ (\beta\lambda)\,\delta_{t+1}^{\mathrm{EZ}}
-+ (\beta\lambda)^2\,\delta_{t+2}^{\mathrm{EZ}}
-+ \cdots
+\tilde A_t = \delta_t^{\mathrm{EZ}} + (\beta\lambda)\,\delta_{t+1}^{\mathrm{EZ}} + (\beta\lambda)^2\,\delta_{t+2}^{\mathrm{EZ}} + \cdots
 \]
 \)$$
 
