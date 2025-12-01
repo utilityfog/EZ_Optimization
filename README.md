@@ -560,7 +560,7 @@ We normalize $\( \tilde A_t \)$ to mean 0 and variance 1 in each minibatch.
 
 ---
 
-## 8.4 PPO clipped policy loss (consumption-only)
+### 8.4 PPO clipped policy loss (consumption-only)
 
 Let:
 
@@ -592,7 +592,7 @@ r_t(\theta)\tilde A_t,\;
 
 ---
 
-## 8.5 Entropy term (Gaussian action only)
+### 8.5 Entropy term (Gaussian action only)
 
 The actor samples
 
@@ -624,7 +624,7 @@ There is no Dirichlet entropy here since we removed risky-weight allocations.
 
 ---
 
-## 8.6 ICM loss
+### 8.6 ICM loss
 
 As defined in §7.2:
 
@@ -639,7 +639,7 @@ The inverse loss is zero in consumption-only and can be enabled later if desired
 
 ---
 
-## 8.7 Final training loss
+### 8.7 Final training loss
 
 Define scalar weighting hyperparameters:
 
