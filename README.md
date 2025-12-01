@@ -305,9 +305,7 @@ The **external reward** at time $\(t\)$ is the EZ flow term in $\(z\)$–space, 
 
 $$\(
 \[
-r_t^{\mathrm{ext}}
-= (1 - \beta)\, C_t^{\,1 - \frac{1}{\psi}}
-= (1 - \beta)\, (c_t W_t)^{\,1 - \frac{1}{\psi}}.
+r_t^{\mathrm{ext}} = (1 - \beta) C_t^{\,1 - \frac{1}{\psi}} = (1 - \beta) (c_t W_t)^{\,1 - \frac{1}{\psi}}.
 \]
 \)$$
 
