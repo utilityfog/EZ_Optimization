@@ -499,7 +499,7 @@ The one-step EZ bootstrap target is:
 
 $$\(
 \[
-T_{t}^{(z)} = (1 - \beta) C_t^{\,1 - \frac{1}{\psi}} + \beta \left( \hat y_{t+1} \right)^{\frac{1 - \frac{1}{\psi}}{1 - \gamma}}.
+T_{t}^{(z)} = (1 - \beta) C_t^{1 - \frac{1}{\psi}} + \beta \left( \hat y_{t+1} \right)^{\frac{1 - \frac{1}{\psi}}{1 - \gamma}}.
 \]
 \)$$
 
