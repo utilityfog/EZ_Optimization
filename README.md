@@ -90,8 +90,8 @@ Learn a memory depth $\(d_{\text{target}} \in [d_{\min}, d_{\max}]\)$ (e.g., $\(
 ### 3.2 Placement in pipeline
 - Input raw **log-returns** per asset: $\(r_t \in \mathbb{R}^n\)$ (or windows).  
 - Apply a FracDiff operator with effective exponent $\(d_{\text{eff}}\)$:
-  - **Mode “direct”**: apply $\((1 - L)^{d_{\text{target}}}\)$ to returns.  
-  - **Mode “price\_equiv”**: apply $\((1 - L)^{d_{\text{target}} - 1}\)$ to returns (equivalent to price fracdiff of $\(d_{\text{target}}\)$ without reconstructing prices).
+  - **Mode "direct"**: apply $\((1 - L)^{d_{\text{target}}}\)$ to returns.  
+  - **Mode "price\_equiv"**: apply $\((1 - L)^{d_{\text{target}} - 1}\)$ to returns (equivalent to price fracdiff of $\(d_{\text{target}}\)$ without reconstructing prices).
 - Truncate the kernel to length $\(K\)$ (auto-chosen from $\(d_{\text{eff}}\)$ and a tolerance). Outputs lose the first $\(K\)$ steps.
 
 ### 3.3 State augmentation & alignment
@@ -102,7 +102,7 @@ Learn a memory depth $\(d_{\text{target}} \in [d_{\min}, d_{\max}]\)$ (e.g., $\(
 ### 3.4 Regularization & constraints
 - Keep $\(d_{\text{target}}\)$ within bounds via a sigmoid reparameterization.  
 - Add a small L2 penalty if $\(d_{\text{target}}\)$ sticks to the bounds.  
-- Optional “whiteness” regularizer: penalize low-lag autocorrelation of FD residuals to avoid over-memory.
+- Optional "whiteness" regularizer: penalize low-lag autocorrelation of FD residuals to avoid over-memory.
 
 > **Everything backpropagates end-to-end** because kernel weights are differentiable functions of $\(d_{\text{eff}}\)$.
 
