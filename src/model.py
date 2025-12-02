@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 
-
 class ActorCriticEZ(nn.Module):
     """
     MLP with shared trunk and three heads:
