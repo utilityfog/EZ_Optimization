@@ -11,12 +11,17 @@ from .algorithm.ez_targets import ez_z_target
 from .algorithm.ppo import compute_gae, ppo_update
 from .utils import RolloutBuffer
 
+
 def ensure_processed(cfg: Config):
     features_path = os.path.join(PROC_DIR, "features.npy")
     returns_path = os.path.join(PROC_DIR, "returns.npy")
     if not (os.path.exists(features_path) and os.path.exists(returns_path)):
         print("Processed data not found, running preprocessing")
-        build_processed(frac_d=cfg.frac_d, max_lag=cfg.frac_max_lag, tol=cfg.frac_tol)
+        build_processed(
+            frac_d=cfg.frac_d,
+            max_lag=cfg.frac_max_lag,
+            tol=cfg.frac_tol,
+        )
 
     features = np.load(features_path)
     returns = np.load(returns_path)
@@ -36,12 +41,20 @@ def main():
         beta=cfg.beta,
         psi=cfg.psi,
         start_wealth=cfg.start_wealth,
+        window_len=cfg.fd_window,
     )
 
     dummy_state = env.reset()
     state_dim = dummy_state.shape[0]
 
-    model = ActorCriticEZ(state_dim=state_dim, hidden_dim=128).to(device)
+    model = ActorCriticEZ(
+        state_dim=state_dim,
+        hidden_dim=128,
+        use_fracdiff=cfg.use_learnable_fracdiff,
+        fracdiff_max_lag=cfg.fracdiff_max_lag,
+        fracdiff_init_d=cfg.fracdiff_init_d,
+        window_len=cfg.fd_window,
+    ).to(device)
     optimizer = Adam(model.parameters(), lr=cfg.lr)
 
     for episode in range(cfg.num_episodes):
@@ -57,6 +70,10 @@ def main():
             c_scalar = float(c_t.detach().cpu().item())
 
             next_state_np, r_ext, done, info = env.step(c_scalar)
+            if np.isnan(r_ext):
+                print(">>> NAN r_ext FROM ENV AT STEP", step_idx, "C=", info["C"], "W=", env.W)
+                raise SystemExit
+            
             C_t = info["C"]
 
             buf.add(
@@ -91,9 +108,17 @@ def main():
             gamma_risk=cfg.gamma_risk,
         )
 
-        advantages, returns_gae = compute_gae(
+        advantages, _ = compute_gae(
             rewards=rewards, values=z_hats, gamma=cfg.gamma, lam=cfg.gae_lambda
         )
+        
+        print("CHECK: rewards min/max:", rewards.min().item(), rewards.max().item())
+        print("CHECK: C_arr min/max:", C_arr.min().item(), C_arr.max().item())
+        print("CHECK: z_hats min/max:", z_hats.min().item(), z_hats.max().item())
+        print("CHECK: y_next min/max:", y_next.min().item(), y_next.max().item())
+        print("CHECK: z_targets min/max:", z_targets.min().item(), z_targets.max().item())
+        print("CHECK: advantages min/max:", advantages.min().item(), advantages.max().item())
+
 
         stats = ppo_update(
             model=model,

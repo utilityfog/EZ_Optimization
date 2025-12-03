@@ -99,6 +99,9 @@ def ppo_update(
 
             mu, std, z_hat, y_hat = model.forward(s_b)
 
+            # clamp std directly to avoid degenerate sigmas
+            std = torch.clamp(std, 1e-3, 5.0)
+
             # reconstruct pre-sigmoid y corresponding to given actions a_b
             a_clamped = torch.clamp(a_b, 1e-6, 1.0 - 1e-6)
             y = torch.log(a_clamped) - torch.log(1.0 - a_clamped)
@@ -111,6 +114,15 @@ def ppo_update(
             )
             log_det = torch.log(a_clamped) + torch.log(1.0 - a_clamped)
             logp = (log_norm - log_det).squeeze(-1)
+            
+            # debug guards (optional but very useful while developing)
+            if torch.isnan(logp).any():
+                print("NaN in logp")
+            if torch.isnan(z_hat).any():
+                print("NaN in z_hat")
+            if torch.isnan(adv_b).any():
+                print("NaN in adv_b")
+
 
             # PPO clipped surrogate objective
             ratio = torch.exp(logp - old_logp_b)
