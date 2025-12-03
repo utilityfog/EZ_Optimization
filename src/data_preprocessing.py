@@ -2,8 +2,6 @@ import os
 import numpy as np
 import pandas as pd
 
-from .fracdiff import fracdiff_series
-
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 RAW_DIR = os.path.join(DATA_DIR, "raw")
 PROC_DIR = os.path.join(DATA_DIR, "processed")
@@ -12,111 +10,97 @@ PROC_DIR = os.path.join(DATA_DIR, "processed")
 def _to_datetime(df: pd.DataFrame):
     date_cols = [c for c in df.columns if "date" in c.lower()]
     if not date_cols:
-        raise ValueError("No date-like column found in dataframe")
+        raise ValueError("No date column found")
     c = date_cols[0]
     df[c] = pd.to_datetime(df[c])
     return df, c
 
 
 def load_raw_data():
+    """
+    Load:
+      sp500_df: OHLCV daily S&P 500 data
+      psavert_df: monthly personal savings rate
+      unemploy_df: monthly unemployment
+    Resample everything to month-end and merge.
+    """
     sp500_df = pd.read_csv(os.path.join(RAW_DIR, "sp500_df.csv"))
     psavert_df = pd.read_csv(os.path.join(RAW_DIR, "psavert_df.csv"))
     unemploy_df = pd.read_csv(os.path.join(RAW_DIR, "unemploy_df.csv"))
 
-    # parse dates
+    # --- Parse dates ---
     sp500_df, sp_date = _to_datetime(sp500_df)
     psavert_df, ps_date = _to_datetime(psavert_df)
     unemploy_df, un_date = _to_datetime(unemploy_df)
 
-    # monthly date for merging
+    # --- Identify close/ohlcv columns ---
+    close_col = None
+    for c in ["SP500_Close", "close", "Close"]:
+        if c in sp500_df.columns:
+            close_col = c
+            break
+    if close_col is None:
+        raise ValueError("Could not find close or SP500_Close column in sp500_df")
+
+    open_col = "open" if "open" in sp500_df.columns else "Open"
+    high_col = "high" if "high" in sp500_df.columns else "High"
+    low_col  = "low"  if "low"  in sp500_df.columns else "Low"
+    vol_col  = "volume" if "volume" in sp500_df.columns else "Volume"
+
+    for col in [open_col, high_col, low_col, vol_col]:
+        if col not in sp500_df.columns:
+            raise ValueError(f"Missing OHLCV column: {col}")
+
+    # --- Convert S&P daily OHLCV to monthly OHLCV via last trading day ---
     sp500_df["date_som"] = sp500_df[sp_date].values.astype("datetime64[M]")
-    psavert_df["date_som"] = psavert_df[ps_date].values.astype("datetime64[M]")
-    unemploy_df["date_som"] = unemploy_df[un_date].values.astype("datetime64[M]")
 
-    # handle returns source
-    ret_path = os.path.join(RAW_DIR, "SP500_simple_returns.csv")
-    if os.path.exists(ret_path):
-        SP500_simple_returns = pd.read_csv(ret_path)
-        SP500_simple_returns, ret_date = _to_datetime(SP500_simple_returns)
+    monthly_ohlcv = (
+        sp500_df.sort_values(sp_date)
+        .groupby("date_som", as_index=False)
+        .tail(1)[["date_som", open_col, high_col, low_col, close_col, vol_col]]
+        .sort_values("date_som")
+        .reset_index(drop=True)
+    )
 
-        if "SP500_Returns" not in SP500_simple_returns.columns:
-            guess = [
-                c for c in SP500_simple_returns.columns
-                if "return" in c.lower() or "ret" in c.lower()
-            ]
-            if not guess:
-                raise ValueError("Could not find return column in SP500_simple_returns")
-            SP500_simple_returns = SP500_simple_returns.rename(
-                columns={guess[0]: "SP500_Returns"}
-            )
+    # --- Compute monthly returns from close prices ---
+    monthly_ohlcv["SP500_Returns"] = monthly_ohlcv[close_col].pct_change()
 
-        SP500_simple_returns["date_som"] = SP500_simple_returns[
-            ret_date
-        ].values.astype("datetime64[M]")
-        SP500_simple_returns = SP500_simple_returns[
-            ["date_som", "SP500_Returns"]
-        ]
-
-    else:
-        # build monthly pct change from daily close or SP500_Close
-        close_col = "SP500_Close" if "SP500_Close" in sp500_df.columns else "close"
-        if close_col not in sp500_df.columns:
-            raise ValueError("Missing closing price column in sp500_df")
-
-        monthly_price = (
-            sp500_df.sort_values(sp_date)
-            .groupby("date_som", as_index=False)
-            .tail(1)[["date_som", close_col]]
-            .sort_values("date_som")
-            .reset_index(drop=True)
-        )
-        monthly_price["SP500_Returns"] = monthly_price[close_col].pct_change()
-        SP500_simple_returns = monthly_price[["date_som", "SP500_Returns"]]
-
-    # normalize macro names
+    # --- Macro data ---
+    # personal savings
     if "Personal_Savings_Rate" not in psavert_df.columns:
-        candidates = [
-            c for c in psavert_df.columns
-            if "save" in c.lower() or "psavert" in c.lower()
-        ]
-        if not candidates:
-            raise ValueError("Personal Savings Rate column not found")
-        psavert_df = psavert_df.rename(
-            columns={candidates[0]: "Personal_Savings_Rate"}
-        )
+        candidates = [c for c in psavert_df.columns if "save" in c.lower()]
+        psavert_df = psavert_df.rename(columns={candidates[0]: "Personal_Savings_Rate"})
 
+    psavert_df["date_som"] = psavert_df[ps_date].values.astype("datetime64[M]")
+    psavert_df = psavert_df[["date_som", "Personal_Savings_Rate"]]
+
+    # unemployment
     if "Unemployment" not in unemploy_df.columns:
-        candidates = [
-            c for c in unemploy_df.columns if "unemploy" in c.lower()
-        ]
-        if not candidates:
-            raise ValueError("Unemployment column not found")
+        candidates = [c for c in unemploy_df.columns if "unemploy" in c.lower()]
         unemploy_df = unemploy_df.rename(columns={candidates[0]: "Unemployment"})
 
-    psavert_df = psavert_df[["date_som", "Personal_Savings_Rate"]]
+    unemploy_df["date_som"] = unemploy_df[un_date].values.astype("datetime64[M]")
     unemploy_df = unemploy_df[["date_som", "Unemployment"]]
 
-    # wide monthly panel
-    df_wide = (
-        SP500_simple_returns
+    # --- Final merged monthly dataset ---
+    df = (
+        monthly_ohlcv
         .merge(psavert_df, on="date_som", how="left")
         .merge(unemploy_df, on="date_som", how="left")
         .sort_values("date_som")
         .reset_index(drop=True)
     )
 
-    return df_wide
+    return df, (open_col, high_col, low_col, close_col, vol_col)
 
 
 def expanding_normalize(feature_matrix):
     """
-    Expanding window z score normalization.
-    For each time t: use mean/std of features[0:t].
+    Expanding-window z-score normalization.
     """
     n, d = feature_matrix.shape
     out = np.zeros((n, d), dtype=np.float32)
 
-    # cumulative sums for vectorization
     csum = np.cumsum(feature_matrix, axis=0)
     csum_sq = np.cumsum(feature_matrix**2, axis=0)
 
@@ -130,36 +114,34 @@ def expanding_normalize(feature_matrix):
     return out
 
 
-def build_processed(frac_d=0.4, max_lag=128, tol=1e-2):
+def build_processed():
     os.makedirs(PROC_DIR, exist_ok=True)
 
-    df = load_raw_data()
+    df, (open_col, high_col, low_col, close_col, vol_col) = load_raw_data()
 
-    # fractional differencing only for returns
-    R_fd, K_r = fracdiff_series(
-        df["SP500_Returns"], d=frac_d, max_lag=max_lag, tol=tol
-    )
-    df["R_fd"] = R_fd
+    # drop first row (return NaN)
+    df = df.dropna(subset=["SP500_Returns"]).reset_index(drop=True)
 
-    # drop first K_r - 1 rows where fracdiff is NaN
-    df = df.dropna(subset=["R_fd"]).reset_index(drop=True)
+    # ---------- Features ----------
+    # OHLCV + macro
+    features_raw = df[
+        [
+            open_col,
+            high_col,
+            low_col,
+            close_col,
+            vol_col,
+            "Personal_Savings_Rate",
+            "Unemployment",
+        ]
+    ].astype("float32").values
 
-    # raw features (no fracdiff):
-    # SP500 monthly return already included
-    # Macro: Savings, Unemployment
-    features_raw = df[[
-        "SP500_Returns",
-        "Personal_Savings_Rate",
-        "Unemployment"
-    ]].astype("float32").values
-
-    # expanding-window normalization for features
     features_norm = expanding_normalize(features_raw)
 
-    # gross returns for wealth transition
-    gross_returns = (1.0 + df["SP500_Returns"].values.astype("float32"))
+    # ---------- Targets ----------
+    gross_returns = (1.0 + df["SP500_Returns"].astype("float32").values)
 
-    # save arrays
+    # ---------- Save ----------
     np.save(os.path.join(PROC_DIR, "features.npy"), features_norm)
     np.save(os.path.join(PROC_DIR, "returns.npy"), gross_returns)
 
