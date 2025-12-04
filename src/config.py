@@ -27,6 +27,7 @@ class Config:
 
     # training
     num_episodes = 200
-    start_wealth = 100.0
+    start_wealth = 1000.0
+    k_terminal: float = 0.01
 
     device = "mps"

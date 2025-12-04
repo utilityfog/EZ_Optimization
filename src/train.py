@@ -64,6 +64,7 @@ def main():
         psi=cfg.psi,
         start_wealth=cfg.start_wealth,
         window_len=cfg.fd_window,
+        k_terminal=cfg.k_terminal,
     )
 
     dummy_state = env.reset()
@@ -150,8 +151,15 @@ def main():
             gamma_risk=cfg.gamma_risk,
         )
 
+        # advantages, _ = compute_gae(
+        #     rewards=rewards, values=z_hats, gamma=cfg.gamma, lam=cfg.gae_lambda
+        # )
+        
         advantages, _ = compute_gae(
-            rewards=rewards, values=z_hats, gamma=cfg.gamma, lam=cfg.gae_lambda
+            rewards=rewards,
+            values=z_hats,
+            gamma=cfg.beta,           # EZ discount
+            lam=cfg.gae_lambda,
         )
         
         # print("CHECK: rewards min/max:", rewards.min().item(), rewards.max().item())

@@ -21,7 +21,7 @@ class EZSingleAssetEnv:
           simple_return_window (fd_window dims) ]
     """
 
-    def __init__(self, returns, features, beta, psi, start_wealth=1.0, window_len=12):
+    def __init__(self, returns, features, beta, psi, start_wealth=1.0, window_len=12, k_terminal=0.0):
         """
         returns:  array [T] of gross returns R_t (e.g. 1 + r_t)
         features: array [T, d] of feature vectors
@@ -38,6 +38,7 @@ class EZSingleAssetEnv:
         self.psi = float(psi)
         self.start_wealth = float(start_wealth)
         self.window_len = int(window_len)
+        self.k_terminal = float(k_terminal)
 
         self.reset()
 
@@ -49,15 +50,23 @@ class EZSingleAssetEnv:
 
     def _return_window(self):
         """
-        Build a fixed-length window of simple returns ending at t.
+        Build a fixed-length window of *past* simple returns at time t.
+
+        We want 1-month delayed feedback:
+        - At time t, the agent should only see returns up to t-1.
+        - The return for this step (index t) is used in the wealth update
+            and only becomes observable at t+1.
 
         If there is not enough history, left-pad with zeros.
         """
         K = self.window_len
         t = self.t
 
-        start = max(0, t - K + 1)
-        window = self.simple_returns[start : t + 1]  # [len <= K]
+        # We want past K returns, excluding the current step's return.
+        end = t                   # exclusive
+        start = max(0, end - K)   # inclusive
+
+        window = self.simple_returns[start:end]  # shape <= K
         window = window.astype(np.float32)
 
         if len(window) < K:
@@ -66,6 +75,7 @@ class EZSingleAssetEnv:
             window = np.concatenate([pad, window], axis=0)
 
         return window  # shape [K]
+
 
     def _state(self):
         """
@@ -110,6 +120,10 @@ class EZSingleAssetEnv:
         # advance time
         self.t += 1
         done = self.t >= self.T - 1
+        
+        # terminal bonus based on terminal wealth
+        if done and self.k_terminal != 0.0:
+            r_ext += self.k_terminal * np.log(self.W + 1e-6)
 
         next_state = None if done else self._state()
         info = {"W": self.W, "C": C_t}
