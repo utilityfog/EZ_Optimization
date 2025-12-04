@@ -77,9 +77,9 @@ class ActorCriticEZ(nn.Module):
             return state
 
         # split state
-        W = state[:, :1]  # [B, 1]
-        feats = state[:, 1 : 1 + self.feature_dim]  # [B, feature_dim]
-        window = state[:, 1 + self.feature_dim :]   # [B, window_len]
+        W = state[:, :1] # [B, 1]
+        feats = state[:, 1 : 1 + self.feature_dim] # [B, feature_dim]
+        window = state[:, 1 + self.feature_dim :] # [B, window_len]
 
         # FD over window, same shape [B, window_len]
         fd_window = self.fracdiff(window)
@@ -105,22 +105,15 @@ class ActorCriticEZ(nn.Module):
         fd_state = torch.nan_to_num(fd_state, nan=0.0, posinf=1.0, neginf=-1.0)
 
         h = self.body(fd_state)
-
-        # mu = self.mu_c(h).squeeze(-1)
-        # std = F.softplus(self.log_std_c).expand_as(mu) + 1e-5
-
-        # z_hat = self.z_head(h).squeeze(-1)
-        # y_hat = self.y_head(h).squeeze(-1)
-        # return mu, std, z_hat, y_hat
         
         # policy (μ & σ)
-        mu = self.mu_c(h).squeeze(-1)                            # [B]
-        std = F.softplus(self.log_std_c).expand_as(mu) + 1e-5     # [B]
+        mu = self.mu_c(h).squeeze(-1) # [B]
+        std = F.softplus(self.log_std_c).expand_as(mu) + 1e-5 # [B]
 
         # critics
-        z_hat = self.z_head(h).squeeze(-1)                      # [B]
-        y_raw = self.y_head(h).squeeze(-1)                      # [B]
-        y_hat = torch.clamp(F.softplus(y_raw), 1e-6, 1e2)       # keep >0
+        z_hat = self.z_head(h).squeeze(-1) # [B]
+        y_raw = self.y_head(h).squeeze(-1) # [B]
+        y_hat = torch.clamp(F.softplus(y_raw), 1e-6, 1e2) # keep >0
 
         return mu, std, z_hat, y_hat
 

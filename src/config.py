@@ -23,7 +23,7 @@ class Config:
     ent_coeff = 0.1
     ppo_epochs = 10
     batch_size = 128
-    lr = 1e-2
+    lr = 1e-2 # Changing this to any other value, such as 1e-4, fucks performance.
 
     # training
     num_episodes = 200

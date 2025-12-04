@@ -9,33 +9,6 @@ from .model import ActorCriticEZ
 from .train import clean_features_and_returns
 
 
-def _clean_split(features: np.ndarray, returns: np.ndarray):
-    """
-    Apply the same non-finite row filtering used in training.
-    This mirrors ensure_processed in train.py so that train eval
-    uses the same rows the model actually saw.
-    """
-    bad_feat = ~np.isfinite(features)
-    bad_ret = ~np.isfinite(returns)
-
-    if bad_feat.any() or bad_ret.any():
-        print("Non-finite values detected in split during eval")
-
-        feat_row_mask = np.isfinite(features).all(axis=1)
-        ret_row_mask = np.isfinite(returns)
-        joint_mask = feat_row_mask & ret_row_mask
-
-        print("  keeping", joint_mask.sum(), "rows out of", joint_mask.size)
-
-        features = features[joint_mask]
-        returns = returns[joint_mask]
-
-        assert np.isfinite(features).all()
-        assert np.isfinite(returns).all()
-
-    return features, returns
-
-
 def load_splits():
     """
     Load train and test splits created by build_processed and
@@ -64,7 +37,6 @@ def load_splits():
 
     return (train_features, train_returns), (test_features, test_returns)
 
-
 def make_model(cfg: Config, state_dim: int, device: torch.device) -> ActorCriticEZ:
     model = ActorCriticEZ(
         state_dim=state_dim,
@@ -76,9 +48,7 @@ def make_model(cfg: Config, state_dim: int, device: torch.device) -> ActorCritic
     ).to(device)
     return model
 
-
-def _backtest_on_env(cfg: Config, env: EZSingleAssetEnv, model: ActorCriticEZ,
-                     device: torch.device, split_name: str):
+def _backtest_on_env(cfg: Config, env: EZSingleAssetEnv, model: ActorCriticEZ, device: torch.device, split_name: str):
     """
     Run deterministic backtest on a pre-built env, using
     c_t = sigmoid(mu(s_t)) at each step.
@@ -167,7 +137,6 @@ def _backtest_on_env(cfg: Config, env: EZSingleAssetEnv, model: ActorCriticEZ,
 
     return stats
 
-
 def backtest_deterministic(cfg: Config, model_path: str):
     device = torch.device(cfg.device)
 
@@ -212,7 +181,6 @@ def backtest_deterministic(cfg: Config, model_path: str):
         print("Skipping deterministic evaluation on test split (no valid rows).")
 
     return stats_train, stats_test
-
 
 def main():
     cfg = Config()

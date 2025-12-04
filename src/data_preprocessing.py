@@ -15,7 +15,6 @@ def _to_datetime(df: pd.DataFrame):
     df[c] = pd.to_datetime(df[c])
     return df, c
 
-
 def load_raw_data():
     """
     Load:
@@ -28,12 +27,12 @@ def load_raw_data():
     psavert_df = pd.read_csv(os.path.join(RAW_DIR, "psavert_df.csv"))
     unemploy_df = pd.read_csv(os.path.join(RAW_DIR, "unemploy_df.csv"))
 
-    # --- Parse dates ---
+    # Parse dates
     sp500_df, sp_date = _to_datetime(sp500_df)
     psavert_df, ps_date = _to_datetime(psavert_df)
     unemploy_df, un_date = _to_datetime(unemploy_df)
 
-    # --- Identify close/ohlcv columns ---
+    # Identify close/ohlcv columns
     close_col = None
     for c in ["SP500_Close", "close", "Close"]:
         if c in sp500_df.columns:
@@ -51,7 +50,7 @@ def load_raw_data():
         if col not in sp500_df.columns:
             raise ValueError(f"Missing OHLCV column: {col}")
 
-    # --- Convert S&P daily OHLCV to monthly OHLCV via last trading day ---
+    # Convert S&P daily OHLCV to monthly OHLCV via last trading day
     sp500_df["date_som"] = sp500_df[sp_date].values.astype("datetime64[M]")
 
     monthly_ohlcv = (
@@ -62,10 +61,10 @@ def load_raw_data():
         .reset_index(drop=True)
     )
 
-    # --- Compute monthly returns from close prices ---
+    # Compute monthly returns from close prices
     monthly_ohlcv["SP500_Returns"] = monthly_ohlcv[close_col].pct_change()
 
-    # --- Macro data ---
+    # Macro data
     # personal savings
     if "Personal_Savings_Rate" not in psavert_df.columns:
         candidates = [c for c in psavert_df.columns if "save" in c.lower()]
@@ -84,7 +83,7 @@ def load_raw_data():
     unemploy_df["date_som"] = unemploy_df[un_date].values.astype("datetime64[M]")
     unemploy_df = unemploy_df[["date_som", "Unemployment"]]
 
-    # --- Final merged monthly dataset ---
+    # Final merged monthly dataset
     df = (
         monthly_ohlcv
         .merge(psavert_df, on="date_som", how="left")
@@ -94,7 +93,6 @@ def load_raw_data():
     )
 
     return df, (open_col, high_col, low_col, close_col, vol_col)
-
 
 def expanding_normalize(feature_matrix):
     """
@@ -135,7 +133,7 @@ def build_processed(
     # drop first row (return NaN)
     df = df.dropna(subset=["SP500_Returns"]).reset_index(drop=True)
 
-    # ---------- Features ----------
+    # Features
     # OHLCV + macro
     features_raw = df[
         [
@@ -151,10 +149,10 @@ def build_processed(
 
     features_norm = expanding_normalize(features_raw)
 
-    # ---------- Targets ----------
+    # Targets
     gross_returns = (1.0 + df["SP500_Returns"].astype("float32").values)
 
-    # ---------- Chronological train test split ----------
+    # Chronological train test split
     n = features_norm.shape[0]
     if not (0.0 < train_frac < 1.0):
         raise ValueError(f"train_frac must be in (0,1), got {train_frac}")
@@ -170,7 +168,7 @@ def build_processed(
     y_train = gross_returns[:split_idx]
     y_test = gross_returns[split_idx:]
 
-    # ---------- Save ----------
+    # Save
     # Training arrays, for compatibility with train.py ensure_processed
     np.save(os.path.join(PROC_DIR, "features.npy"), X_train)
     np.save(os.path.join(PROC_DIR, "returns.npy"), y_train)

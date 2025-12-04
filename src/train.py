@@ -91,45 +91,6 @@ def clean_features_and_returns(features: np.ndarray,
 
     return features_clean, returns_clean
 
-
-# def ensure_processed(cfg: Config):
-#     features_path = os.path.join(PROC_DIR, "features.npy")
-#     returns_path = os.path.join(PROC_DIR, "returns.npy")
-#     if not (os.path.exists(features_path) and os.path.exists(returns_path)):
-#         print("Processed data not found, running preprocessing")
-#         build_processed(
-#             frac_d=cfg.frac_d,
-#             max_lag=cfg.frac_max_lag,
-#             tol=cfg.frac_tol,
-#         )
-
-#     features = np.load(features_path)
-#     returns = np.load(returns_path)
-
-#     # Check for non-finite values
-#     bad_feat = ~np.isfinite(features)
-#     bad_ret = ~np.isfinite(returns)
-
-#     if bad_feat.any() or bad_ret.any():
-#         print("Non-finite values detected in processed data")
-
-#         # Option A - drop any rows with non-finite entries (more principled)
-#         feat_row_mask = np.isfinite(features).all(axis=1)
-#         ret_row_mask = np.isfinite(returns)
-#         joint_mask = feat_row_mask & ret_row_mask
-
-#         print("  keeping", joint_mask.sum(), "rows out of", joint_mask.size)
-
-#         features = features[joint_mask]
-#         returns = returns[joint_mask]
-
-#         # Optional: assert nothing bad left
-#         assert np.isfinite(features).all()
-#         assert np.isfinite(returns).all()
-
-#     return features, returns
-
-
 def ensure_processed(cfg: Config):
     features_path = os.path.join(PROC_DIR, "features.npy")
     returns_path = os.path.join(PROC_DIR, "returns.npy")
@@ -148,7 +109,6 @@ def ensure_processed(cfg: Config):
     features, returns = clean_features_and_returns(features, returns, split_name="train")
 
     return features, returns
-
 
 def main():
     cfg = Config()
@@ -272,11 +232,8 @@ def main():
         exp_y = (1.0 - cfg.gamma_risk) / (1.0 - 1.0 / cfg.psi)
         y_targets = torch.pow(z_targets, exp_y).clamp(min=1e-8, max=1e2)
         
-        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-6)
-        # rewards*=100
-        
         # EZ TD residuals
-        r_int = torch.zeros_like(rewards)          # no curiosity yet
+        r_int = torch.zeros_like(rewards) # no curiosity yet
         deltas = ez_td_residual(
             r_ext_t=rewards,
             r_int_t=r_int,
@@ -287,13 +244,11 @@ def main():
             psi=cfg.psi,
             gamma_risk=cfg.gamma_risk,
         )
-        
-        # deltas = (deltas - deltas.mean()) / (deltas.std() + 1e-6)
 
-        # ----- GAE from deltas -----
+        # GAE from deltas
         advantages = compute_gae_from_deltas(
             deltas=deltas,
-            gamma=cfg.beta,        # EZ discount
+            gamma=cfg.beta, # EZ discount
             lam=cfg.gae_lambda,
         )
         

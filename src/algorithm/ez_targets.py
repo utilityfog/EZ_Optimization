@@ -62,8 +62,5 @@ def ez_td_residual(
     """
     T_z = ez_z_target(C_t, y_next_hat, beta, psi, gamma_risk)
     r_t = r_ext_t + r_int_t
-    # (WRONG) delta = r_t + beta * (T_z - r_ext_t) - z_hat_t
-    # Corrected: target − value (+ optional intrinsic)
-    # delta = (T_z + r_int_t) - z_hat_t
     delta = r_t + beta * (T_z - r_ext_t) - z_hat_t
     return delta

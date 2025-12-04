@@ -3,29 +3,6 @@ import torch
 import torch.nn.functional as F
 from torch.distributions import Normal
 
-# def compute_gae(rewards, values, gamma=0.99, lam=0.95):
-#     """
-#     Standard GAE using rewards and value function.
-
-#     This is kept for generic use, but for the EZ setting we
-#     typically prefer compute_gae_from_deltas() with EZ TD residuals.
-#     """
-#     T = rewards.size(0)
-#     advantages = torch.zeros(T, device=rewards.device)
-#     last_adv = 0.0
-
-#     for t in reversed(range(T)):
-#         if t == T - 1:
-#             next_value = 0.0
-#         else:
-#             next_value = values[t + 1]
-#         delta = rewards[t] + gamma * next_value - values[t]
-#         last_adv = delta + gamma * lam * last_adv
-#         advantages[t] = last_adv
-
-#     returns = advantages + values
-#     return advantages, returns
-
 def compute_gae_from_deltas(deltas, gamma=0.99, lam=0.95):
     """
     GAE variant that works directly on TD residuals (deltas).
@@ -128,17 +105,11 @@ def ppo_update(
             # Hard safety on mu and std before anything else
             if not torch.isfinite(mu).all():
                 print("Non-finite mu from model.forward")
-                # print("mu min/max:", torch.nanmin(mu), torch.nanmax(mu))
                 raise RuntimeError("NaN or Inf in mu")
 
             if not torch.isfinite(std).all():
                 print("Non-finite std from model.forward (before clamp)")
-                # print("std min/max:", torch.nanmin(std), torch.nanmax(std))
                 raise RuntimeError("NaN or Inf in std before clamp")
-
-            # (obsolete) clamp std directly to avoid degenerate sigmas
-            # std = torch.clamp(std, 1e-3, 5.0)
-            # mu = torch.clamp(mu, -20.0, 20.0)
 
             # reconstruct pre-sigmoid y corresponding to given actions a_b
             a_clamped = torch.clamp(a_b, 1e-6, 1.0 - 1e-6)
@@ -178,8 +149,7 @@ def ppo_update(
             ratio = torch.exp(logp - old_logp_b)
             surr1 = ratio * adv_b
             surr2 = torch.clamp(ratio, 1.0 - clip_ratio, 1.0 + clip_ratio) * adv_b
-            policy_loss = -torch.min(surr1, surr2).mean()
-            # policy_loss = torch.min(surr1, surr2).mean()
+            policy_loss = torch.min(surr1, surr2).mean() # DO NOT CHANGE THIS LINE
 
             # value loss on z-head
             value_loss_z = 0.5 * F.mse_loss(z_hat, z_targ_b)
@@ -190,19 +160,17 @@ def ppo_update(
             value_loss = value_scale * (value_loss_z + value_loss_y)
 
             # entropy of the pre-squash Normal
-            # H = 0.5 * log(2πeσ^2)
             H_c = 0.5 * torch.log(2.0 * math.pi * math.e * std**2)
             entropy = H_c.mean()
 
-            loss = -(policy_loss + vf_coeff * value_loss - ent_coeff * entropy)
-            # loss = policy_loss + vf_coeff * value_loss + ent_coeff * entropy
+            # Final ICM PPO Loss
+            loss = policy_loss + vf_coeff * value_loss - ent_coeff * entropy
             
             if not torch.isfinite(loss):
                 print("Non-finite loss detected")
                 print("policy_loss:", policy_loss.item())
                 print("value_loss:", value_loss.item())
                 print("entropy:", entropy.item())
-                # print("ratio min/max:", torch.nanmin(ratio), torch.nanmax(ratio))
                 raise RuntimeError("Non-finite loss")
 
             optimizer.zero_grad()
@@ -212,7 +180,6 @@ def ppo_update(
             for name, p in model.named_parameters():
                 if p.grad is not None and not torch.isfinite(p.grad).all():
                     print("Non-finite grad in", name)
-                    # print("grad min/max:", torch.nanmin(p.grad), torch.nanmax(p.grad))
                     raise RuntimeError("Non-finite gradient")
             
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -222,7 +189,6 @@ def ppo_update(
             for name, p in model.named_parameters():
                 if not torch.isfinite(p).all():
                     print("Non-finite parameter after optimizer.step in", name)
-                    # print("param min/max:", torch.nanmin(p.data), torch.nanmax(p.data))
                     raise RuntimeError("Non-finite parameter after step")
 
     return {
