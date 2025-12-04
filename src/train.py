@@ -184,6 +184,11 @@ def main():
             f"pol_loss={stats['policy_loss']:.4f}  "
             f"val_loss={stats['value_loss']:.4f}"
         )
+        
+        # After training, save model weights for evaluation
+        save_path = os.path.join(PROC_DIR, "actor_critic_ez.pt")
+        torch.save(model.state_dict(), save_path)
+        print(f"Saved trained ActorCriticEZ to {save_path}")
 
 
 if __name__ == "__main__":

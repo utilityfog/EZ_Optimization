@@ -22,7 +22,7 @@ def load_raw_data():
       sp500_df: OHLCV daily S&P 500 data
       psavert_df: monthly personal savings rate
       unemploy_df: monthly unemployment
-    Resample everything to month end and merge.
+    Resample everything to month-end and merge.
     """
     sp500_df = pd.read_csv(os.path.join(RAW_DIR, "sp500_df.csv"))
     psavert_df = pd.read_csv(os.path.join(RAW_DIR, "psavert_df.csv"))
@@ -44,8 +44,8 @@ def load_raw_data():
 
     open_col = "open" if "open" in sp500_df.columns else "Open"
     high_col = "high" if "high" in sp500_df.columns else "High"
-    low_col = "low" if "low" in sp500_df.columns else "Low"
-    vol_col = "volume" if "volume" in sp500_df.columns else "Volume"
+    low_col  = "low"  if "low"  in sp500_df.columns else "Low"
+    vol_col  = "volume" if "volume" in sp500_df.columns else "Volume"
 
     for col in [open_col, high_col, low_col, vol_col]:
         if col not in sp500_df.columns:
@@ -69,9 +69,7 @@ def load_raw_data():
     # personal savings
     if "Personal_Savings_Rate" not in psavert_df.columns:
         candidates = [c for c in psavert_df.columns if "save" in c.lower()]
-        psavert_df = psavert_df.rename(
-            columns={candidates[0]: "Personal_Savings_Rate"}
-        )
+        psavert_df = psavert_df.rename(columns={candidates[0]: "Personal_Savings_Rate"})
 
     psavert_df["date_som"] = psavert_df[ps_date].values.astype("datetime64[M]")
     psavert_df = psavert_df[["date_som", "Personal_Savings_Rate"]]
@@ -98,7 +96,7 @@ def load_raw_data():
 
 def expanding_normalize(feature_matrix):
     """
-    Expanding window z score normalization.
+    Expanding-window z-score normalization.
     """
     n, d = feature_matrix.shape
     out = np.zeros((n, d), dtype=np.float32)
@@ -116,18 +114,7 @@ def expanding_normalize(feature_matrix):
     return out
 
 
-def build_processed(
-    frac_d: float | None = None,
-    max_lag: int | None = None,
-    tol: float = 1e-6,
-    train_frac: float = 0.8,
-):
-    """
-    Build processed feature and return arrays and do a chronological train test split.
-
-    frac_d, max_lag, tol are accepted for compatibility with older configs
-    but are not used in this simplified pipeline.
-    """
+def build_processed():
     os.makedirs(PROC_DIR, exist_ok=True)
 
     df, (open_col, high_col, low_col, close_col, vol_col) = load_raw_data()
@@ -154,36 +141,13 @@ def build_processed(
     # ---------- Targets ----------
     gross_returns = (1.0 + df["SP500_Returns"].astype("float32").values)
 
-    # ---------- Chronological train test split ----------
-    n = features_norm.shape[0]
-    if not (0.0 < train_frac < 1.0):
-        raise ValueError(f"train_frac must be in (0,1), got {train_frac}")
-
-    split_idx = int(n * train_frac)
-    if split_idx <= 0 or split_idx >= n:
-        raise ValueError(
-            f"Bad split index {split_idx} for n={n}. Check train_frac={train_frac}."
-        )
-
-    X_train = features_norm[:split_idx]
-    X_test = features_norm[split_idx:]
-    y_train = gross_returns[:split_idx]
-    y_test = gross_returns[split_idx:]
-
     # ---------- Save ----------
-    # Training arrays, for compatibility with train.py ensure_processed
-    np.save(os.path.join(PROC_DIR, "features.npy"), X_train)
-    np.save(os.path.join(PROC_DIR, "returns.npy"), y_train)
-
-    # Test arrays, for evaluation
-    np.save(os.path.join(PROC_DIR, "features_test.npy"), X_test)
-    np.save(os.path.join(PROC_DIR, "returns_test.npy"), y_test)
+    np.save(os.path.join(PROC_DIR, "features.npy"), features_norm)
+    np.save(os.path.join(PROC_DIR, "returns.npy"), gross_returns)
 
     print("Saved processed features and returns")
-    print("  train features shape:", X_train.shape)
-    print("  train returns shape:", y_train.shape)
-    print("  test features shape:", X_test.shape)
-    print("  test returns shape:", y_test.shape)
+    print("features shape:", features_norm.shape)
+    print("returns shape:", gross_returns.shape)
 
 
 if __name__ == "__main__":
