@@ -106,11 +106,22 @@ class ActorCriticEZ(nn.Module):
 
         h = self.body(fd_state)
 
-        mu = self.mu_c(h).squeeze(-1)
-        std = F.softplus(self.log_std_c).expand_as(mu) + 1e-5
+        # mu = self.mu_c(h).squeeze(-1)
+        # std = F.softplus(self.log_std_c).expand_as(mu) + 1e-5
 
-        z_hat = self.z_head(h).squeeze(-1)
-        y_hat = self.y_head(h).squeeze(-1)
+        # z_hat = self.z_head(h).squeeze(-1)
+        # y_hat = self.y_head(h).squeeze(-1)
+        # return mu, std, z_hat, y_hat
+        
+        # policy (μ & σ)
+        mu = self.mu_c(h).squeeze(-1)                            # [B]
+        std = F.softplus(self.log_std_c).expand_as(mu) + 1e-5     # [B]
+
+        # critics
+        z_hat = self.z_head(h).squeeze(-1)                      # [B]
+        y_raw = self.y_head(h).squeeze(-1)                      # [B]
+        y_hat = torch.clamp(F.softplus(y_raw), 1e-6, 1e2)       # keep >0
+
         return mu, std, z_hat, y_hat
 
     def act(self, state):
@@ -132,16 +143,17 @@ class ActorCriticEZ(nn.Module):
         
         # print("INITIAL MU:", mu.detach().cpu().numpy()[0])
 
-        eps = torch.randn_like(mu)
-        y = mu + eps * std
-        c = torch.sigmoid(y)
+        μ = torch.clamp(mu, -20.0, 20.0)
+        σ = torch.clamp(std, 1e-3, 5.0)
 
-        # clamp only for log-domain to avoid log(0)
+        eps = torch.randn_like(μ)
+        y   = μ + eps * σ
+        c   = torch.sigmoid(y)
         c_safe = torch.clamp(c, 1e-6, 1.0 - 1e-6)
 
         log_norm = (
-            -0.5 * ((y - mu) / std) ** 2
-            - torch.log(std)
+            -0.5 * ((y - μ) / σ) ** 2
+            - torch.log(σ)
             - 0.5 * math.log(2.0 * math.pi)
         )
 

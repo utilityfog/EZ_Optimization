@@ -6,11 +6,40 @@ from .config import Config
 from .data_preprocessing import PROC_DIR
 from .env import EZSingleAssetEnv
 from .model import ActorCriticEZ
+from .train import clean_features_and_returns
+
+
+def _clean_split(features: np.ndarray, returns: np.ndarray):
+    """
+    Apply the same non-finite row filtering used in training.
+    This mirrors ensure_processed in train.py so that train eval
+    uses the same rows the model actually saw.
+    """
+    bad_feat = ~np.isfinite(features)
+    bad_ret = ~np.isfinite(returns)
+
+    if bad_feat.any() or bad_ret.any():
+        print("Non-finite values detected in split during eval")
+
+        feat_row_mask = np.isfinite(features).all(axis=1)
+        ret_row_mask = np.isfinite(returns)
+        joint_mask = feat_row_mask & ret_row_mask
+
+        print("  keeping", joint_mask.sum(), "rows out of", joint_mask.size)
+
+        features = features[joint_mask]
+        returns = returns[joint_mask]
+
+        assert np.isfinite(features).all()
+        assert np.isfinite(returns).all()
+
+    return features, returns
 
 
 def load_splits():
     """
-    Load train and test splits created by build_processed.
+    Load train and test splits created by build_processed and
+    apply the same finite-value cleaning as in training.
     """
     train_features = np.load(os.path.join(PROC_DIR, "features.npy"))
     train_returns = np.load(os.path.join(PROC_DIR, "returns.npy"))
@@ -25,6 +54,13 @@ def load_splits():
 
     test_features = np.load(test_features_path)
     test_returns = np.load(test_returns_path)
+
+    train_features, train_returns = clean_features_and_returns(
+        train_features, train_returns, split_name="train"
+    )
+    test_features, test_returns = clean_features_and_returns(
+        test_features, test_returns, split_name="test"
+    )
 
     return (train_features, train_returns), (test_features, test_returns)
 
@@ -41,38 +77,20 @@ def make_model(cfg: Config, state_dim: int, device: torch.device) -> ActorCritic
     return model
 
 
-def backtest_deterministic(cfg: Config, model_path: str):
-    device = torch.device(cfg.device)
-
-    (_, _), (features_test, returns_test) = load_splits()
-
-    # Build env on test split
-    env = EZSingleAssetEnv(
-        returns=returns_test,
-        features=features_test,
-        beta=cfg.beta,
-        psi=cfg.psi,
-        start_wealth=cfg.start_wealth,
-        window_len=cfg.fd_window,
-    )
-
-    # Infer state dimension from env
+def _backtest_on_env(cfg: Config, env: EZSingleAssetEnv, model: ActorCriticEZ,
+                     device: torch.device, split_name: str):
+    """
+    Run deterministic backtest on a pre-built env, using
+    c_t = sigmoid(mu(s_t)) at each step.
+    """
     state_np = env.reset()
-    state_dim = state_np.shape[0]
+    state = torch.tensor(state_np, dtype=torch.float32, device=device)
 
-    # Build model and load weights
-    model = make_model(cfg, state_dim, device)
-    state_dict = torch.load(model_path, map_location=device)
-    model.load_state_dict(state_dict)
-    model.eval()
-
-    # Roll through test set deterministically
     wealth_path = [env.W]
     cons_path = []
     z_path = []
     y_path = []
 
-    state = torch.tensor(state_np, dtype=torch.float32, device=device)
     done = False
 
     with torch.no_grad():
@@ -82,7 +100,6 @@ def backtest_deterministic(cfg: Config, model_path: str):
             else:
                 state_in = state
 
-            # Deterministic action: c_t = sigmoid(mu_c(s_t))
             mu, std, z_hat, y_hat = model.forward(state_in)
             c_det = torch.sigmoid(mu).squeeze(-1)
             c_scalar = float(c_det.cpu().item())
@@ -103,13 +120,13 @@ def backtest_deterministic(cfg: Config, model_path: str):
     cons = np.array(cons_path, dtype=np.float64)
     z_arr = np.array(z_path, dtype=np.float64)
 
-    # Basic trading metrics
     initial_wealth = wealth[0]
     final_wealth = wealth[-1]
     pnl = final_wealth / initial_wealth - 1.0
+    print(f"wealth: {wealth}")
 
-    n_steps = returns_test.shape[0]
-    # monthly data, so convert steps to years
+    # infer number of steps from env
+    n_steps = env.T
     years = n_steps / 12.0 if n_steps > 0 else np.nan
     if years > 0:
         cagr = (final_wealth / initial_wealth) ** (1.0 / years) - 1.0
@@ -124,17 +141,16 @@ def backtest_deterministic(cfg: Config, model_path: str):
     else:
         calmar = np.nan
 
-    # Recover EZ value at t=0 from z_hat
     psi = cfg.psi
     if z_arr.size > 0:
         z0 = z_arr[0]
-        # inverse of z(V) = V^{1 - 1/psi}
         exponent = 1.0 / (1.0 - 1.0 / psi)
         V0_hat = float(z0 ** exponent)
     else:
         V0_hat = np.nan
 
     stats = {
+        "split": split_name,
         "initial_wealth": float(initial_wealth),
         "final_wealth": float(final_wealth),
         "pnl": float(pnl),
@@ -142,14 +158,60 @@ def backtest_deterministic(cfg: Config, model_path: str):
         "max_drawdown": float(max_dd),
         "calmar": float(calmar),
         "V0_hat": float(V0_hat),
-        "n_test_steps": int(n_steps),
+        "n_steps": int(n_steps),
     }
 
-    print("Deterministic test evaluation:")
+    print(f"Deterministic evaluation on {split_name} split:")
     for k, v in stats.items():
         print(f"  {k}: {v}")
 
     return stats
+
+
+def backtest_deterministic(cfg: Config, model_path: str):
+    device = torch.device(cfg.device)
+
+    (train_features, train_returns), (features_test, returns_test) = load_splits()
+
+    # Build env on train split to infer state_dim
+    env_train = EZSingleAssetEnv(
+        returns=train_returns,
+        features=train_features,
+        beta=cfg.beta,
+        psi=cfg.psi,
+        start_wealth=cfg.start_wealth,
+        window_len=cfg.fd_window,
+        k_terminal=cfg.k_terminal,
+    )
+
+    state_np = env_train.reset()
+    state_dim = state_np.shape[0]
+
+    # Build model and load weights
+    model = make_model(cfg, state_dim, device)
+    state_dict = torch.load(model_path, map_location=device)
+    model.load_state_dict(state_dict)
+    model.eval()
+
+    # Train-split deterministic backtest
+    stats_train = _backtest_on_env(cfg, env_train, model, device, split_name="train")
+
+    stats_test = None
+    if features_test.shape[0] > 0 and returns_test.shape[0] > 0:
+        env_test = EZSingleAssetEnv(
+            returns=returns_test,
+            features=features_test,
+            beta=cfg.beta,
+            psi=cfg.psi,
+            start_wealth=cfg.start_wealth,
+            window_len=cfg.fd_window,
+            k_terminal=cfg.k_terminal,
+        )
+        stats_test = _backtest_on_env(cfg, env_test, model, device, split_name="test")
+    else:
+        print("Skipping deterministic evaluation on test split (no valid rows).")
+
+    return stats_train, stats_test
 
 
 def main():

@@ -18,16 +18,16 @@ class Config:
     # PPO
     gamma = 0.99
     gae_lambda = 0.95
-    clip_ratio = 0.2
-    vf_coeff = 0.5
-    ent_coeff = 0.0
+    clip_ratio = 0.1 # 0.2
+    vf_coeff = 1.0 # 0.5
+    ent_coeff = 0.1
     ppo_epochs = 10
     batch_size = 128
-    lr = 3e-4
+    lr = 1e-2
 
     # training
     num_episodes = 200
-    start_wealth = 1000.0
-    k_terminal: float = 0.01
+    start_wealth = 10000.0
+    k_terminal: float = 1000.0
 
     device = "mps"

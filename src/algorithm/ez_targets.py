@@ -25,7 +25,8 @@ def ez_z_target(C_t, y_next_hat, beta: float, psi: float, gamma_risk: float):
     power_inner = power_outer / (1.0 - gamma_risk)
 
     C_safe = torch.clamp(C_t, min=1e-8)
-    y_safe = torch.clamp(y_next_hat, min=1e-8)
+    # y_safe = torch.clamp(y_next_hat, min=1e-8)
+    y_safe = torch.clamp(y_next_hat, 1e-6, 1e1)
 
     term1 = (1.0 - beta) * torch.pow(C_safe, power_outer)
     term2 = beta * torch.pow(y_safe, power_inner)
@@ -61,5 +62,8 @@ def ez_td_residual(
     """
     T_z = ez_z_target(C_t, y_next_hat, beta, psi, gamma_risk)
     r_t = r_ext_t + r_int_t
+    # (WRONG) delta = r_t + beta * (T_z - r_ext_t) - z_hat_t
+    # Corrected: target − value (+ optional intrinsic)
+    # delta = (T_z + r_int_t) - z_hat_t
     delta = r_t + beta * (T_z - r_ext_t) - z_hat_t
     return delta

@@ -83,6 +83,7 @@ class EZSingleAssetEnv:
         normalized wealth = W_t / max past wealth.
         """
         W_norm = self.W / self.M if self.M > 0 else 1.0
+        # W_norm = self.W
         x_t = self.features[self.t]              # [d]
         r_win = self._return_window()            # [window_len]
 
@@ -110,7 +111,8 @@ class EZSingleAssetEnv:
         self.M = max(self.M, self.W)
 
         # EZ external reward (main economic objective)
-        power = max(1.0 - 1.0 / self.psi, 0.0)
+        # power = max(1.0 - 1.0 / self.psi, 0.0)
+        power = 1.0 - 1.0 / self.psi
         C_safe = max(C_t, 1e-6)
         r_ext = (1.0 - self.beta) * (C_safe ** power)
         if not np.isfinite(r_ext):

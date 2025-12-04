@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 from torch.optim import Adam
 
@@ -8,8 +9,125 @@ from .data_preprocessing import build_processed, PROC_DIR
 from .env import EZSingleAssetEnv
 from .model import ActorCriticEZ
 from .algorithm.ez_targets import ez_z_target
-from .algorithm.ppo import compute_gae, ppo_update
+from .algorithm.ppo import ppo_update
 from .utils import RolloutBuffer
+from .algorithm.ez_targets import ez_z_target, ez_td_residual
+from .algorithm.ppo import compute_gae_from_deltas
+
+
+def clean_features_and_returns(features: np.ndarray,
+                               returns: np.ndarray,
+                               split_name: str):
+    """
+    Make features and returns finite for a given split.
+
+    1. Prefer to drop rows that have any non finite entries.
+    2. If that would drop *all* rows, fall back to column wise imputation:
+       - replace non finite feature entries with column means (or 0 if column is entirely bad)
+       - replace non finite returns with 1.0 (neutral gross return)
+    This guarantees:
+        - no NaN or Inf in the output
+        - we never end up with zero length splits.
+    """
+    bad_feat = ~np.isfinite(features)
+    bad_ret = ~np.isfinite(returns)
+
+    if not bad_feat.any() and not bad_ret.any():
+        # Fast path: nothing to fix
+        return features, returns
+
+    # Row level mask: require every feature and the return to be finite
+    feat_row_mask = np.isfinite(features).all(axis=1)
+    ret_row_mask = np.isfinite(returns)
+    joint_mask = feat_row_mask & ret_row_mask
+    n_keep = int(joint_mask.sum())
+
+    if n_keep > 0:
+        print(f"Non-finite values detected in {split_name} split during cleaning")
+        print(f"  keeping {n_keep} rows out of {joint_mask.size}")
+        features_clean = features[joint_mask].copy()
+        returns_clean = returns[joint_mask].copy()
+        assert np.isfinite(features_clean).all()
+        assert np.isfinite(returns_clean).all()
+        return features_clean, returns_clean
+
+    # Fallback: dropping would kill the entire split
+    print(f"Warning: no fully finite rows in {split_name} split.")
+    print("  Falling back to column-wise imputation instead of dropping everything.")
+
+    features_clean = features.copy()
+    returns_clean = returns.copy()
+
+    # Debug: how bad is it
+    nonfinite_per_col = bad_feat.sum(axis=0)
+    print(f"  non-finite feature counts per column ({split_name}): {nonfinite_per_col}")
+    print(f"  non-finite returns in {split_name}: {int(bad_ret.sum())}")
+
+    # Compute column means ignoring non finite entries
+    with np.errstate(invalid="ignore"):
+        col_means = np.nanmean(
+            np.where(np.isfinite(features_clean), features_clean, np.nan),
+            axis=0,
+        )
+
+    # If a column is entirely non finite, its mean is NaN: set those to 0
+    col_means = np.where(np.isfinite(col_means), col_means, 0.0)
+
+    # Impute features column by column
+    for j in range(features_clean.shape[1]):
+        col = features_clean[:, j]
+        mask_bad = ~np.isfinite(col)
+        if mask_bad.any():
+            col[mask_bad] = col_means[j]
+            features_clean[:, j] = col
+
+    # Impute returns (gross returns, so 1.0 is "no growth")
+    mask_bad_r = ~np.isfinite(returns_clean)
+    if mask_bad_r.any():
+        returns_clean[mask_bad_r] = 1.0
+
+    assert np.isfinite(features_clean).all()
+    assert np.isfinite(returns_clean).all()
+
+    return features_clean, returns_clean
+
+
+# def ensure_processed(cfg: Config):
+#     features_path = os.path.join(PROC_DIR, "features.npy")
+#     returns_path = os.path.join(PROC_DIR, "returns.npy")
+#     if not (os.path.exists(features_path) and os.path.exists(returns_path)):
+#         print("Processed data not found, running preprocessing")
+#         build_processed(
+#             frac_d=cfg.frac_d,
+#             max_lag=cfg.frac_max_lag,
+#             tol=cfg.frac_tol,
+#         )
+
+#     features = np.load(features_path)
+#     returns = np.load(returns_path)
+
+#     # Check for non-finite values
+#     bad_feat = ~np.isfinite(features)
+#     bad_ret = ~np.isfinite(returns)
+
+#     if bad_feat.any() or bad_ret.any():
+#         print("Non-finite values detected in processed data")
+
+#         # Option A - drop any rows with non-finite entries (more principled)
+#         feat_row_mask = np.isfinite(features).all(axis=1)
+#         ret_row_mask = np.isfinite(returns)
+#         joint_mask = feat_row_mask & ret_row_mask
+
+#         print("  keeping", joint_mask.sum(), "rows out of", joint_mask.size)
+
+#         features = features[joint_mask]
+#         returns = returns[joint_mask]
+
+#         # Optional: assert nothing bad left
+#         assert np.isfinite(features).all()
+#         assert np.isfinite(returns).all()
+
+#     return features, returns
 
 
 def ensure_processed(cfg: Config):
@@ -26,26 +144,8 @@ def ensure_processed(cfg: Config):
     features = np.load(features_path)
     returns = np.load(returns_path)
 
-    # Check for non-finite values
-    bad_feat = ~np.isfinite(features)
-    bad_ret = ~np.isfinite(returns)
-
-    if bad_feat.any() or bad_ret.any():
-        print("Non-finite values detected in processed data")
-
-        # Option A - drop any rows with non-finite entries (more principled)
-        feat_row_mask = np.isfinite(features).all(axis=1)
-        ret_row_mask = np.isfinite(returns)
-        joint_mask = feat_row_mask & ret_row_mask
-
-        print("  keeping", joint_mask.sum(), "rows out of", joint_mask.size)
-
-        features = features[joint_mask]
-        returns = returns[joint_mask]
-
-        # Optional: assert nothing bad left
-        assert np.isfinite(features).all()
-        assert np.isfinite(returns).all()
+    # Use the same cleaning routine as eval, tagged as train
+    features, returns = clean_features_and_returns(features, returns, split_name="train")
 
     return features, returns
 
@@ -87,12 +187,19 @@ def main():
 
         done = False
         step_idx = 0
+        
+        actions_log = []
+        wealth_log  = []
 
         while not done:
             c_t, logp, z_hat, y_hat = model.act(state)
             c_scalar = float(c_t.detach().cpu().item())
 
             next_state_np, r_ext, done, info = env.step(c_scalar)
+            
+            actions_log.append(c_scalar)
+            wealth_log.append(info["W"])
+            
             if np.isnan(r_ext):
                 print(">>> NAN r_ext FROM ENV AT STEP", step_idx, "C=", info["C"], "W=", env.W)
                 raise SystemExit
@@ -115,6 +222,15 @@ def main():
                 )
 
             step_idx += 1
+            
+        # DEBUG Plot
+        plt.figure()
+        plt.plot(actions_log)
+        plt.title("Consumption rate c_t")
+        plt.figure()
+        plt.semilogy(wealth_log)
+        plt.title("Wealth trajectory")
+        plt.show()
 
         states, actions, logps_old, rewards, C_arr, z_hats, y_hats = buf.to_tensors(
             device=device
@@ -143,6 +259,7 @@ def main():
         # build y_next_hat by shifting
         y_next = torch.cat([y_hats[1:], y_hats[-1:].clone()], dim=0)
 
+        # bootstrap targets
         z_targets = ez_z_target(
             C_t=C_arr,
             y_next_hat=y_next,
@@ -150,15 +267,33 @@ def main():
             psi=cfg.psi,
             gamma_risk=cfg.gamma_risk,
         )
-
-        # advantages, _ = compute_gae(
-        #     rewards=rewards, values=z_hats, gamma=cfg.gamma, lam=cfg.gae_lambda
-        # )
         
-        advantages, _ = compute_gae(
-            rewards=rewards,
-            values=z_hats,
-            gamma=cfg.beta,           # EZ discount
+        # V^{1-γ}  ↔  z(V)^{(1-γ)/(1-1/ψ)}
+        exp_y = (1.0 - cfg.gamma_risk) / (1.0 - 1.0 / cfg.psi)
+        y_targets = torch.pow(z_targets, exp_y).clamp(min=1e-8, max=1e2)
+        
+        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-6)
+        # rewards*=100
+        
+        # EZ TD residuals
+        r_int = torch.zeros_like(rewards)          # no curiosity yet
+        deltas = ez_td_residual(
+            r_ext_t=rewards,
+            r_int_t=r_int,
+            z_hat_t=z_hats,
+            C_t=C_arr,
+            y_next_hat=y_next,
+            beta=cfg.beta,
+            psi=cfg.psi,
+            gamma_risk=cfg.gamma_risk,
+        )
+        
+        # deltas = (deltas - deltas.mean()) / (deltas.std() + 1e-6)
+
+        # ----- GAE from deltas -----
+        advantages = compute_gae_from_deltas(
+            deltas=deltas,
+            gamma=cfg.beta,        # EZ discount
             lam=cfg.gae_lambda,
         )
         
@@ -178,6 +313,8 @@ def main():
             old_logp=logps_old,
             advantages=advantages,
             z_targets=z_targets,
+            y_targets=y_targets,
+            value_scale=0.01,
             clip_ratio=cfg.clip_ratio,
             vf_coeff=cfg.vf_coeff,
             ent_coeff=cfg.ent_coeff,
