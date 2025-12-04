@@ -22,7 +22,7 @@ class RolloutBuffer:
         self.z_hats.append(z_hat)
         self.y_hats.append(y_hat)
 
-    def to_tensors(self, device="cpu"):
+    def to_tensors(self, device="mps"):
         states = torch.stack(self.states).to(device)
         actions = torch.stack(self.actions).to(device)
         logps = torch.stack(self.logps).to(device)

@@ -29,4 +29,4 @@ class Config:
     num_episodes = 200
     start_wealth = 100.0
 
-    device = "cpu"
+    device = "mps"

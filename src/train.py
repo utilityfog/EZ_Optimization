@@ -25,6 +25,28 @@ def ensure_processed(cfg: Config):
 
     features = np.load(features_path)
     returns = np.load(returns_path)
+
+    # Check for non-finite values
+    bad_feat = ~np.isfinite(features)
+    bad_ret = ~np.isfinite(returns)
+
+    if bad_feat.any() or bad_ret.any():
+        print("Non-finite values detected in processed data")
+
+        # Option A - drop any rows with non-finite entries (more principled)
+        feat_row_mask = np.isfinite(features).all(axis=1)
+        ret_row_mask = np.isfinite(returns)
+        joint_mask = feat_row_mask & ret_row_mask
+
+        print("  keeping", joint_mask.sum(), "rows out of", joint_mask.size)
+
+        features = features[joint_mask]
+        returns = returns[joint_mask]
+
+        # Optional: assert nothing bad left
+        assert np.isfinite(features).all()
+        assert np.isfinite(returns).all()
+
     return features, returns
 
 
@@ -96,6 +118,26 @@ def main():
         states, actions, logps_old, rewards, C_arr, z_hats, y_hats = buf.to_tensors(
             device=device
         )
+        
+        # DEBUG: inspect states
+        if not torch.isfinite(states).all():
+            print("Non-finite states detected after rollout")
+            nan_mask = torch.isnan(states)
+            inf_mask = torch.isinf(states)
+
+            print("  any NaN:", nan_mask.any().item())
+            print("  any Inf:", inf_mask.any().item())
+
+            bad_rows = nan_mask.any(dim=1) | inf_mask.any(dim=1)
+            bad_idx = bad_rows.nonzero(as_tuple=False).squeeze()
+
+            print("  timesteps with bad state rows:", bad_idx)
+            if bad_idx.numel() > 0:
+                i0 = bad_idx[0].item()
+                print("  example bad state row (index", i0, "):")
+                print(states[i0])
+
+            raise RuntimeError("Non-finite states coming from env/preprocessing")
 
         # build y_next_hat by shifting
         y_next = torch.cat([y_hats[1:], y_hats[-1:].clone()], dim=0)
@@ -112,12 +154,12 @@ def main():
             rewards=rewards, values=z_hats, gamma=cfg.gamma, lam=cfg.gae_lambda
         )
         
-        print("CHECK: rewards min/max:", rewards.min().item(), rewards.max().item())
-        print("CHECK: C_arr min/max:", C_arr.min().item(), C_arr.max().item())
-        print("CHECK: z_hats min/max:", z_hats.min().item(), z_hats.max().item())
-        print("CHECK: y_next min/max:", y_next.min().item(), y_next.max().item())
-        print("CHECK: z_targets min/max:", z_targets.min().item(), z_targets.max().item())
-        print("CHECK: advantages min/max:", advantages.min().item(), advantages.max().item())
+        # print("CHECK: rewards min/max:", rewards.min().item(), rewards.max().item())
+        # print("CHECK: C_arr min/max:", C_arr.min().item(), C_arr.max().item())
+        # print("CHECK: z_hats min/max:", z_hats.min().item(), z_hats.max().item())
+        # print("CHECK: y_next min/max:", y_next.min().item(), y_next.max().item())
+        # print("CHECK: z_targets min/max:", z_targets.min().item(), z_targets.max().item())
+        # print("CHECK: advantages min/max:", advantages.min().item(), advantages.max().item())
 
 
         stats = ppo_update(

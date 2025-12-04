@@ -130,7 +130,7 @@ class ActorCriticEZ(nn.Module):
 
         mu, std, z_hat, y_hat = self.forward(state)
         
-        print("INITIAL MU:", mu.detach().cpu().numpy()[0])
+        # print("INITIAL MU:", mu.detach().cpu().numpy()[0])
 
         eps = torch.randn_like(mu)
         y = mu + eps * std
