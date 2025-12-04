@@ -187,10 +187,13 @@ def main():
         plt.figure()
         plt.plot(actions_log)
         plt.title("Consumption rate c_t")
+        plt.savefig(f"./images/Epoch4/actions{episode}.png")
+        
         plt.figure()
         plt.semilogy(wealth_log)
         plt.title("Wealth trajectory")
-        plt.show()
+        plt.savefig(f"./images/Epoch4/wealth{episode}.png")
+        # plt.show()
 
         states, actions, logps_old, rewards, C_arr, z_hats, y_hats = buf.to_tensors(
             device=device

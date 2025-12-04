@@ -26,7 +26,7 @@ class Config:
     lr = 1e-2 # Changing this to any other value, such as 1e-4, fucks performance.
 
     # training
-    num_episodes = 200
+    num_episodes = 10
     start_wealth = 10000.0
     k_terminal: float = 1000.0
 
