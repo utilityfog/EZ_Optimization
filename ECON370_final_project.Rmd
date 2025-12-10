@@ -1,0 +1,354 @@
+---
+title: "Final_Project_template"
+author: "Wonjae Oh"
+date: "University of North Carolina | ECON 370 Final Project"
+output:
+  tufte::tufte_html: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+library(tufte)
+```
+
+## Introduction and structure
+
+This R Markdown file is the main driver for the project. It
+
+- pulls and cleans data in R with `R/data_preprocessing.R`
+- builds expanding window OLS and LASSO benchmarks
+- can call Python EZ PPO code through `reticulate`
+- compares out of sample forecasting and trading performance
+
+Remove or shorten this section when you submit.
+
+---
+
+## Packages and sources
+
+```{r packages}
+library(tidyquant)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(glmnet)
+library(ggplot2)
+library(reticulate)
+
+# R helpers for data extraction and cleaning
+source("R/data_preprocessing.R")
+
+# IMPORTANT:
+# Point reticulate at the exact Python you use for EZ_Optimization.
+# Edit the path below to your venv python, for example:
+# use_python("/Users/james/Desktop/GitHub/EZ_Optimization/venv/bin/python", required = TRUE)
+
+# Uncomment and fix this path after your R and Python architectures match
+# use_python("/absolute/path/to/your/venv/bin/python", required = TRUE)
+
+# Python driver that runs EZ PPO training / evaluation
+# src/ez_runner.py is created separately and imported here
+source_python("src/ez_runner.py")
+```
+
+## Variable reasoning
+
+Our target is next month S&P 500 simple return. Predictors combine macro, rates, credit, volatility and momentum, and must reach at least 10 variables from 4 or more data sources. A possible set is
+
+- current and lagged monthly S&P 500 returns (market momentum)
+- real GDP growth rate
+- personal savings rate
+- unemployment rate
+- CPI inflation
+- effective federal funds rate
+- 10 year minus 2 year Treasury term spread
+- BAA corporate bond yield
+- VIX monthly return
+
+Economic stories:
+
+- macro growth and savings capture aggregate demand and buffer stock behavior
+- unemployment and spreads proxy for business cycle risk
+- inflation and policy rates describe the nominal environment
+- VIX and past returns capture risk appetite and trend following
+
+All of these are monthly series either from FRED or market data.
+
+---
+
+## Data extraction, cleaning, and combining (R)
+
+All data work lives in `R/data_preprocessing.R`. This Rmd only calls a single function and checks the result.
+
+```{r build-data}
+Total_data <- build_total_data()
+
+glimpse(Total_data)
+summary(Total_data$predicting_return)
+
+cat("Any NA? ", anyNA(Total_data), "\n")
+cat("Number of rows: ", nrow(Total_data), "\n")
+range(Total_data$predicting_date)
+```
+
+By construction, `Total_data` should have
+
+- `predicting_date` from 1985-01-01 to 2024-12-01
+- 480 rows (40 years times 12 months)
+- columns: `predicting_date`, `predicting_return` and at least 10 predictors
+
+If any of these checks fail, fix `build_total_data()` before moving on.
+
+---
+
+## Simple exploration
+
+```{r exploration}
+# pairwise correlations between future return and predictors
+cors <- cor(
+  Total_data$predicting_return,
+  Total_data %>% dplyr::select(-predicting_date, -predicting_return)
+)
+
+cors
+
+# 5 year rolling correlations
+Rolling_corr <- Total_data %>%
+  dplyr::select(predicting_date, -predicting_return)
+
+var_names <- names(Rolling_corr)[names(Rolling_corr) != "predicting_date"]
+Rolling_corr[, var_names] <- NA_real_
+
+window_len <- 60
+
+for (i in 1:(nrow(Total_data) - window_len + 1)) {
+  idx <- i:(i + window_len - 1)
+  Rolling_corr$predicting_date[i + window_len - 1] <- Total_data$predicting_date[i + window_len - 1]
+  Rolling_corr[i + window_len - 1, var_names] <- cor(
+    Total_data$predicting_return[idx],
+    Total_data[idx, var_names]
+  )
+}
+
+Rolling_corr_long <- Rolling_corr %>%
+  tidyr::drop_na() %>%
+  tidyr::pivot_longer(-predicting_date,
+               names_to = "Variable",
+               values_to = "rolling_corr")
+
+ggplot(Rolling_corr_long,
+       aes(x = predicting_date, y = rolling_corr, color = Variable)) +
+  geom_line(linewidth = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Five year rolling correlation with future return",
+    x = "Date",
+    y = "Rolling correlation"
+  ) +
+  theme(legend.position = "top")
+```
+
+---
+
+## Expanding window OLS and LASSO in R
+
+We follow the course structure. For year `i` between 2009 and 2024,
+
+- training for OLS uses all data from 1985 up to year `i - 1`
+- training plus validation for LASSO uses a split of early years for training and mid years for validation
+- out of sample test is year `i`
+
+```{r oos-regression}
+# define predictors explicitly (everything except date and target)
+pred_vars <- setdiff(names(Total_data), c("predicting_date", "predicting_return"))
+
+lambda_grid <- 10 ^ seq(-3, 3, length.out = 40)
+cv_errors  <- numeric(length(lambda_grid))
+
+Testing_result <- Total_data %>%
+  dplyr::filter(lubridate::year(predicting_date) >= 2009) %>%
+  dplyr::transmute(
+    predicting_date,
+    actual_return = predicting_return,
+    fitted_return_OLS   = NA_real_,
+    fitted_return_LASSO = NA_real_
+  )
+
+for (i_year in 2009:2024) {
+  train_ols <- Total_data %>%
+    dplyr::filter(lubridate::year(predicting_date) < i_year)
+
+  # LASSO training and validation split
+  train_start <- 1985
+  val_start   <- i_year - 8
+
+  train_lasso <- Total_data %>%
+    dplyr::filter(lubridate::year(predicting_date) >= train_start,
+                  lubridate::year(predicting_date) < val_start)
+
+  val_lasso <- Total_data %>%
+    dplyr::filter(lubridate::year(predicting_date) >= val_start,
+                  lubridate::year(predicting_date) < i_year)
+
+  test_x <- Total_data %>%
+    dplyr::filter(lubridate::year(predicting_date) == i_year) %>%
+    dplyr::select(dplyr::all_of(pred_vars))
+
+  x_train <- train_lasso %>% dplyr::select(dplyr::all_of(pred_vars)) %>% as.matrix()
+  y_train <- train_lasso$predicting_return
+
+  x_val <- val_lasso %>% dplyr::select(dplyr::all_of(pred_vars)) %>% as.matrix()
+  y_val <- val_lasso$predicting_return
+
+  for (j in seq_along(lambda_grid)) {
+    m_lasso <- glmnet(x_train, y_train, alpha = 1, lambda = lambda_grid[j])
+    y_pred_val <- as.numeric(predict(m_lasso, newx = x_val))
+    cv_errors[j] <- mean((y_val - y_pred_val) ^ 2)
+  }
+
+  best_lambda <- lambda_grid[which.min(cv_errors)]
+
+  x_tv <- rbind(x_train, x_val)
+  y_tv <- c(y_train, y_val)
+
+  m_lasso_best <- glmnet(x_tv, y_tv, alpha = 1, lambda = best_lambda)
+
+  x_test_mat <- as.matrix(test_x)
+  y_pred_test_lasso <- as.numeric(predict(m_lasso_best, newx = x_test_mat))
+
+  # benchmark OLS on all data before i_year
+  m_ols <- lm(
+    predicting_return ~ . - predicting_date,
+    data = train_ols
+  )
+
+  y_pred_test_ols <- predict(
+    m_ols,
+    newdata = Total_data %>% dplyr::filter(lubridate::year(predicting_date) == i_year)
+  )
+
+  Testing_result$fitted_return_LASSO[lubridate::year(Testing_result$predicting_date) == i_year] <- y_pred_test_lasso
+  Testing_result$fitted_return_OLS[lubridate::year(Testing_result$predicting_date) == i_year]   <- y_pred_test_ols
+}
+
+head(Testing_result)
+```
+
+---
+
+## Residual plots and out of sample R squared
+
+```{r residuals-r2}
+R_Sq_oos <- function(actual, fitted) {
+  1 - sum((actual - fitted) ^ 2) / sum(actual ^ 2)
+}
+
+r2_ols   <- R_Sq_oos(Testing_result$actual_return, Testing_result$fitted_return_OLS)
+r2_lasso <- R_Sq_oos(Testing_result$actual_return, Testing_result$fitted_return_LASSO)
+
+cat("OOS R^2 OLS   :", r2_ols, "\n")
+cat("OOS R^2 LASSO :", r2_lasso, "\n")
+
+ggplot(Testing_result) +
+  geom_point(aes(x = actual_return,
+                 y = actual_return - fitted_return_OLS,
+                 color = "OLS"),
+             alpha = 0.7) +
+  geom_point(aes(x = actual_return,
+                 y = actual_return - fitted_return_LASSO,
+                 color = "LASSO"),
+             alpha = 0.7) +
+  geom_smooth(aes(x = actual_return,
+                  y = actual_return - fitted_return_OLS,
+                  color = "OLS"),
+              method = "lm", se = TRUE) +
+  geom_smooth(aes(x = actual_return,
+                  y = actual_return - fitted_return_LASSO,
+                  color = "LASSO"),
+              method = "lm", se = TRUE) +
+  labs(
+    x = "Actual next month return",
+    y = "Residual",
+    color = "Model",
+    title = "Residual vs actual for expanding window OLS and LASSO"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top")
+```
+
+---
+
+## Simple trading strategies from regression forecasts
+
+```{r trading-reg}
+Trading_Strategy <- Testing_result %>%
+  mutate(
+    Trade_OLS   = (fitted_return_OLS   > 0),
+    Trade_LASSO = (fitted_return_LASSO > 0),
+    ret_OLS     = Trade_OLS   * actual_return,
+    ret_LASSO   = Trade_LASSO * actual_return
+  )
+
+Trading_Strategy$CR_OLS      <- NA_real_
+Trading_Strategy$CR_LASSO    <- NA_real_
+Trading_Strategy$CR_BuyHold  <- NA_real_
+
+Trading_Strategy$CR_OLS[1]      <- 1
+Trading_Strategy$CR_LASSO[1]    <- 1
+Trading_Strategy$CR_BuyHold[1]  <- 1
+
+for (i in 2:nrow(Trading_Strategy)) {
+  Trading_Strategy$CR_OLS[i] <-
+    Trading_Strategy$CR_OLS[i - 1] * (1 + Trading_Strategy$ret_OLS[i] / 100)
+  Trading_Strategy$CR_LASSO[i] <-
+    Trading_Strategy$CR_LASSO[i - 1] * (1 + Trading_Strategy$ret_LASSO[i] / 100)
+  Trading_Strategy$CR_BuyHold[i] <-
+    Trading_Strategy$CR_BuyHold[i - 1] * (1 + Trading_Strategy$actual_return[i] / 100)
+}
+
+Trading_long <- Trading_Strategy %>%
+  dplyr::select(predicting_date, CR_OLS, CR_LASSO, CR_BuyHold) %>%
+  tidyr::pivot_longer(-predicting_date,
+               names_to = "Strategy",
+               values_to = "CR")
+
+ggplot(Trading_long,
+       aes(x = predicting_date, y = CR, color = Strategy)) +
+  geom_line(linewidth = 0.8) +
+  theme_minimal() +
+  labs(
+    title = "Cumulative returns of simple strategies based on regression forecasts",
+    x = "Date",
+    y = "Cumulative return"
+  ) +
+  theme(legend.position = "top")
+```
+
+---
+
+## Python EZ PPO training and inference through reticulate
+
+This chunk delegates to Python. The file `src/ez_runner.py` should
+
+- reuse your existing EZ_Optimization code
+- train the EZ PPO model or load an existing checkpoint
+- produce out of sample signals and a cumulative return path
+
+Here we just call a single function `run_ez_pipeline()` that you implement in Python.
+
+```{r python-ez, eval=FALSE}
+# This will only work once reticulate is pointed at the correct Python
+# and src/ez_runner.py is present and imports correctly.
+
+ez_out <- run_ez_pipeline()
+
+str(ez_out)
+```
+
+Assume `ez_out` is a list with at least
+
+- `signals`: data frame with an index column and `signal_ez`
+- `cr_ez`: a vector of cumulative returns for the EZ strategy
+
+You can left join this onto `Trading_Strategy` after you align the index with `predicting_date`, then produce comparison plots for RL vs regression vs buy and hold.
