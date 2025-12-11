@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
 
 from .config import Config
 from .data_preprocessing import PROC_DIR
@@ -48,7 +49,142 @@ def make_model(cfg: Config, state_dim: int, device: torch.device) -> ActorCritic
     ).to(device)
     return model
 
-def _backtest_on_env(cfg: Config, env: EZSingleAssetEnv, model: ActorCriticEZ, device: torch.device, split_name: str):
+# def _backtest_on_env(cfg: Config, env: EZSingleAssetEnv, model: ActorCriticEZ, device: torch.device, split_name: str):
+#     """
+#     Run deterministic backtest on a pre-built env, using
+#     c_t = sigmoid(mu(s_t)) at each step.
+#     """
+#     state_np = env.reset()
+#     state = torch.tensor(state_np, dtype=torch.float32, device=device)
+
+#     wealth_path = [env.W]
+#     cons_path = []
+#     z_path = []
+#     y_path = []
+
+#     done = False
+
+#     with torch.no_grad():
+#         while not done:
+#             if state.dim() == 1:
+#                 state_in = state.unsqueeze(0)
+#             else:
+#                 state_in = state
+
+#             mu, std, z_hat, y_hat = model.forward(state_in)
+#             c_det = torch.sigmoid(mu).squeeze(-1)
+#             c_scalar = float(c_det.cpu().item())
+
+#             next_state_np, r_ext, done, info = env.step(c_scalar)
+
+#             wealth_path.append(env.W)
+#             cons_path.append(info["C"])
+#             z_path.append(float(z_hat.squeeze(-1).cpu().item()))
+#             y_path.append(float(y_hat.squeeze(-1).cpu().item()))
+
+#             if not done:
+#                 state = torch.tensor(
+#                     next_state_np, dtype=torch.float32, device=device
+#                 )
+
+#     wealth = np.array(wealth_path, dtype=np.float64)
+#     cons = np.array(cons_path, dtype=np.float64)
+#     z_arr = np.array(z_path, dtype=np.float64)
+
+#     initial_wealth = wealth[0]
+#     final_wealth = wealth[-1]
+#     pnl = final_wealth / initial_wealth - 1.0
+#     print(f"wealth: {wealth}")
+
+#     # infer number of steps from env
+#     n_steps = env.T
+#     years = n_steps / 12.0 if n_steps > 0 else np.nan
+#     if years > 0:
+#         cagr = (final_wealth / initial_wealth) ** (1.0 / years) - 1.0
+#     else:
+#         cagr = np.nan
+
+#     running_max = np.maximum.accumulate(wealth)
+#     drawdowns = wealth / running_max - 1.0
+#     max_dd = float(drawdowns.min())
+#     if max_dd < 0:
+#         calmar = cagr / abs(max_dd)
+#     else:
+#         calmar = np.nan
+
+#     psi = cfg.psi
+#     if z_arr.size > 0:
+#         z0 = z_arr[0]
+#         exponent = 1.0 / (1.0 - 1.0 / psi)
+#         V0_hat = float(z0 ** exponent)
+#     else:
+#         V0_hat = np.nan
+
+#     stats = {
+#         "split": split_name,
+#         "initial_wealth": float(initial_wealth),
+#         "final_wealth": float(final_wealth),
+#         "pnl": float(pnl),
+#         "cagr": float(cagr),
+#         "max_drawdown": float(max_dd),
+#         "calmar": float(calmar),
+#         "V0_hat": float(V0_hat),
+#         "n_steps": int(n_steps),
+#     }
+
+#     print(f"Deterministic evaluation on {split_name} split:")
+#     for k, v in stats.items():
+#         print(f"  {k}: {v}")
+
+#     return stats
+
+# def backtest_deterministic(cfg: Config, model_path: str):
+#     device = torch.device(cfg.device)
+
+#     (train_features, train_returns), (features_test, returns_test) = load_splits()
+
+#     # Build env on train split to infer state_dim
+#     env_train = EZSingleAssetEnv(
+#         returns=train_returns,
+#         features=train_features,
+#         beta=cfg.beta,
+#         psi=cfg.psi,
+#         start_wealth=cfg.start_wealth,
+#         window_len=cfg.fd_window,
+#         k_terminal=cfg.k_terminal,
+#     )
+
+#     state_np = env_train.reset()
+#     state_dim = state_np.shape[0]
+
+#     # Build model and load weights
+#     model = make_model(cfg, state_dim, device)
+#     state_dict = torch.load(model_path, map_location=device)
+#     model.load_state_dict(state_dict)
+#     model.eval()
+
+#     # Train-split deterministic backtest
+#     stats_train = _backtest_on_env(cfg, env_train, model, device, split_name="train")
+
+#     stats_test = None
+#     if features_test.shape[0] > 0 and returns_test.shape[0] > 0:
+#         env_test = EZSingleAssetEnv(
+#             returns=returns_test,
+#             features=features_test,
+#             beta=cfg.beta,
+#             psi=cfg.psi,
+#             start_wealth=cfg.start_wealth,
+#             window_len=cfg.fd_window,
+#             k_terminal=cfg.k_terminal,
+#         )
+#         stats_test = _backtest_on_env(cfg, env_test, model, device, split_name="test")
+#     else:
+#         print("Skipping deterministic evaluation on test split (no valid rows).")
+
+#     return stats_train, stats_test
+
+def _backtest_on_env(cfg: Config, env: EZSingleAssetEnv, model: ActorCriticEZ,
+                     device: torch.device, split_name: str):
     """
     Run deterministic backtest on a pre-built env, using
     c_t = sigmoid(mu(s_t)) at each step.
@@ -60,6 +196,7 @@ def _backtest_on_env(cfg: Config, env: EZSingleAssetEnv, model: ActorCriticEZ, d
     cons_path = []
     z_path = []
     y_path = []
+    action_path = []  # <-- add if you want actions
 
     done = False
 
@@ -80,6 +217,7 @@ def _backtest_on_env(cfg: Config, env: EZSingleAssetEnv, model: ActorCriticEZ, d
             cons_path.append(info["C"])
             z_path.append(float(z_hat.squeeze(-1).cpu().item()))
             y_path.append(float(y_hat.squeeze(-1).cpu().item()))
+            action_path.append(c_scalar)  # store deterministic action
 
             if not done:
                 state = torch.tensor(
@@ -89,11 +227,36 @@ def _backtest_on_env(cfg: Config, env: EZSingleAssetEnv, model: ActorCriticEZ, d
     wealth = np.array(wealth_path, dtype=np.float64)
     cons = np.array(cons_path, dtype=np.float64)
     z_arr = np.array(z_path, dtype=np.float64)
+    actions = np.array(action_path, dtype=np.float64)
+    
+    # NEW: plotting actions & wealth for this split
+    # Save under ./images/Eval/
+    plot_dir = os.path.join(".", "images", "Eval")
+    os.makedirs(plot_dir, exist_ok=True)
+
+    # Actions (consumption rates)
+    plt.figure()
+    plt.plot(actions)
+    plt.title(f"Consumption rate c_t ({split_name} split)")
+    plt.xlabel("t")
+    plt.ylabel("c_t")
+    plt.savefig(os.path.join(plot_dir, f"actions_{split_name}.png"))
+    plt.close()
+
+    # Wealth (log scale like in training)
+    plt.figure()
+    plt.semilogy(wealth)
+    plt.title(f"Wealth trajectory ({split_name} split)")
+    plt.xlabel("t")
+    plt.ylabel("Wealth")
+    plt.savefig(os.path.join(plot_dir, f"wealth_{split_name}.png"))
+    plt.close()
+    # END NEW PLOTTING
 
     initial_wealth = wealth[0]
     final_wealth = wealth[-1]
     pnl = final_wealth / initial_wealth - 1.0
-    print(f"wealth: {wealth}")
+    print(f"wealth ({split_name}): {wealth}")
 
     # infer number of steps from env
     n_steps = env.T
@@ -131,11 +294,20 @@ def _backtest_on_env(cfg: Config, env: EZSingleAssetEnv, model: ActorCriticEZ, d
         "n_steps": int(n_steps),
     }
 
+    paths = {
+        "wealth": wealth,
+        "cons": cons,
+        "z": z_arr,
+        "actions": actions,
+    }
+
     print(f"Deterministic evaluation on {split_name} split:")
     for k, v in stats.items():
         print(f"  {k}: {v}")
 
-    return stats
+    # IMPORTANT: return both
+    return stats, paths
+
 
 def backtest_deterministic(cfg: Config, model_path: str):
     device = torch.device(cfg.device)
@@ -163,9 +335,11 @@ def backtest_deterministic(cfg: Config, model_path: str):
     model.eval()
 
     # Train-split deterministic backtest
-    stats_train = _backtest_on_env(cfg, env_train, model, device, split_name="train")
+    stats_train, paths_train = _backtest_on_env(
+        cfg, env_train, model, device, split_name="train"
+    )
 
-    stats_test = None
+    stats_test, paths_test = None, None
     if features_test.shape[0] > 0 and returns_test.shape[0] > 0:
         env_test = EZSingleAssetEnv(
             returns=returns_test,
@@ -176,11 +350,16 @@ def backtest_deterministic(cfg: Config, model_path: str):
             window_len=cfg.fd_window,
             k_terminal=cfg.k_terminal,
         )
-        stats_test = _backtest_on_env(cfg, env_test, model, device, split_name="test")
+        stats_test, paths_test = _backtest_on_env(
+            cfg, env_test, model, device, split_name="test"
+        )
     else:
         print("Skipping deterministic evaluation on test split (no valid rows).")
 
-    return stats_train, stats_test
+    return (
+        {"stats": stats_train, "paths": paths_train},
+        {"stats": stats_test, "paths": paths_test},
+    )
 
 def main():
     cfg = Config()

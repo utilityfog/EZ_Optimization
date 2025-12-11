@@ -35,6 +35,7 @@ from typing import Dict, Any, Tuple
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 # ---------------------------------------------------------------------
 # Locate project root and make sure Python can see `src` as a package
@@ -55,6 +56,7 @@ try:
     from src.config import Config
     from src.data_preprocessing import PROC_DIR, expanding_normalize
     from src.train import main as train_main
+    from src.eval import backtest_deterministic
 except ImportError as e:
     raise ImportError(
         f"Failed to import from src. "
@@ -334,6 +336,27 @@ def run_ez_pipeline(
 
     return out
 
+def run_ez_eval(retrain: bool = False):
+    """
+    Called from R via reticulate.
+
+    If retrain=True, run the training loop first, then deterministic backtest.
+    Returns a dict with train/test stats and paths suitable for reticulate.
+    """
+    cfg = Config()
+
+    if retrain:
+        # make sure processed data and model are up to date
+        train_main()
+
+    model_path = os.path.join(PROC_DIR, "actor_critic_ez.pt")
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(
+            f"Model checkpoint not found at {model_path}. Run training first (or use retrain=True)."
+        )
+
+    result = backtest_deterministic(cfg, model_path)
+    return result
 
 if __name__ == "__main__":
     info = run_ez_pipeline(retrain=True, num_episodes=1)

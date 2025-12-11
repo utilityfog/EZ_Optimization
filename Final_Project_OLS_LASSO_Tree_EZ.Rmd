@@ -1,5 +1,5 @@
 ---
-title: "Final_Project_OLS_LASSO_Tree"
+title: "Path Dependent Learning Dynamics of ICM PPO with Epstein Zin Utility in Time Series Reinforcement Learning"
 author: "Wonjae Oh"
 date: "University of North Carolina | ECON 370 Final Project"
 output:
@@ -14,14 +14,17 @@ library(tufte)
 
 ## Introduction and structure
 
-This R Markdown file is the main driver for the *R-side* of the project. It
+This R Markdown file is the main driver for the project. It
 
 - pulls and cleans data in R with `R/data_preprocessing.R`
 - builds expanding-window OLS, LASSO, and decision tree benchmarks
 - constructs simple trading rules from each model’s forecasts
-- compares out-of-sample performance of the three strategies to buy-and-hold
+- calls Python EZ PPO code through `reticulate`
+- compares out-of-sample performance across all strategies
 
-The Python EZ PPO part is handled separately; this document focuses on OLS/LASSO/tree.
+### **The knitted html output including the performance of the Epstein-Zin PPO model will be different each run due to path dependence!**
+
+### Please clone https://github.com/utilityfog/EZ_Optimization/tree/main and then run Final_Project_OLS_LASSO_Tree_EZ.Rmd from within the cloned repo root!
 
 ---
 
@@ -36,11 +39,13 @@ library(glmnet)
 library(ggplot2)
 library(rpart)
 library(rpart.plot)
+library(reticulate)
 
 # R helpers for data extraction and cleaning
 source("R/data_preprocessing.R")
 
-# Ensure the CSV and Total_data exist and are up to date
+# Ensure the CSV for Python exists
+# Always rebuild so Python sees the latest columns (including sample_set)
 Total_data <- build_total_data()
 
 cat("Sample-set counts from R (40/20/40 split):\n")
@@ -48,15 +53,29 @@ print(table(Total_data$sample_set))
 
 cat("Sample-set proportions:\n")
 print(prop.table(table(Total_data$sample_set)))
+
+# IMPORTANT:
+# Point reticulate at the exact Python we use for EZ_Optimization.
+use_python("/Users/james/Desktop/GitHub/EZ_Optimization/venv/bin/python", required = TRUE)
+
+# Optional sanity check: see what Python reticulate is using
+py_config()
+
+# Python bridge that imports from src.train / src.eval etc.
+# ez_runner.py should sit in the project root, not inside src/
+# and should expose a function run_ez_eval(retrain=False) that
+# internally calls src.eval.backtest_deterministic(...)
+# and returns a dict with train/test stats and paths.
+source_python("ez_runner.py")
 ```
 
 ---
 
 ## Variable reasoning
 
-Our target is next month S\&P 500 simple return (`predicting_return`). Predictors combine macro, rates, credit, volatility and momentum, and must reach at least 10 variables from 4 or more data sources. Here we use
+Our target is next month S&P 500 simple return (`predicting_return`). Predictors combine macro, rates, credit, volatility and momentum, and must reach at least 10 variables from 4 or more data sources. Here we use
 
-- current and lagged monthly S\&P 500 returns (market momentum)
+- current and lagged monthly S&P 500 returns (market momentum)
 - real GDP growth rate
 - personal savings rate
 - unemployment rate
@@ -82,8 +101,6 @@ All of these are monthly series either from FRED or market data.
 All data work lives in `R/data_preprocessing.R`. This Rmd only calls a single function and checks the result.
 
 ```{r build-data}
-Total_data <- build_total_data()
-
 glimpse(Total_data)
 summary(Total_data$predicting_return)
 
@@ -105,17 +122,23 @@ If any of these checks fail, fix `build_total_data()` before moving on.
 ## Simple exploration
 
 ```{r exploration}
-# pairwise correlations between future return and predictors
+# pairwise correlations between future return and numeric predictors
+numeric_preds <- Total_data %>%
+  dplyr::select(-predicting_date, -predicting_return) %>%
+  dplyr::select(where(is.numeric))
+
 cors <- cor(
   Total_data$predicting_return,
-  Total_data %>% dplyr::select(-predicting_date, -predicting_return)
+  numeric_preds
 )
 
 cors
 
 # 5 year (60-month) rolling correlations
 Rolling_corr <- Total_data %>%
-  dplyr::select(predicting_date, -predicting_return)
+  # keep date plus numeric predictors only, drop target
+  dplyr::select(predicting_date, where(is.numeric)) %>%
+  dplyr::select(-predicting_return)
 
 var_names <- names(Rolling_corr)[names(Rolling_corr) != "predicting_date"]
 Rolling_corr[, var_names] <- NA_real_
@@ -153,7 +176,7 @@ ggplot(Rolling_corr_long,
 
 ---
 
-## Expanding-window OLS, LASSO, and decision tree
+## Expanding-window OLS, LASSO, and decision tree (R side)
 
 We follow the course structure. For calendar year `i` between 2009 and 2024,
 
@@ -164,8 +187,12 @@ We follow the course structure. For calendar year `i` between 2009 and 2024,
 - Out-of-sample test is the full year `i`.
 
 ```{r oos-models}
+# Drop sample_set entirely from modeling data to avoid factor level issues
+Total_model <- Total_data %>%
+  dplyr::select(-sample_set)
+
 # define predictors explicitly (everything except date and target)
-pred_vars <- setdiff(names(Total_data), c("predicting_date", "predicting_return"))
+pred_vars <- setdiff(names(Total_model), c("predicting_date", "predicting_return"))
 
 lambda_grid <- 10 ^ seq(-3, 3, length.out = 40)
 cv_errors_lasso  <- numeric(length(lambda_grid))
@@ -185,35 +212,39 @@ Testing_result <- Total_data %>%
   )
 
 for (i_year in 2009:2024) {
-  # OLS training on all history before i_year
-  train_ols <- Total_data %>%
+  # work only with Total_model (no sample_set)
+  train_ols <- Total_model %>%
     dplyr::filter(lubridate::year(predicting_date) < i_year)
 
   # LASSO / tree training and validation split
   train_start <- 1985
   val_start   <- i_year - 8  # 8-year validation window
 
-  train_lasso <- Total_data %>%
+  train_lasso <- Total_model %>%
     dplyr::filter(
       lubridate::year(predicting_date) >= train_start,
       lubridate::year(predicting_date) <  val_start
     )
 
-  val_lasso <- Total_data %>%
+  val_lasso <- Total_model %>%
     dplyr::filter(
       lubridate::year(predicting_date) >= val_start,
       lubridate::year(predicting_date) <  i_year
     )
 
-  test_x <- Total_data %>%
+  test_x <- Total_model %>%
     dplyr::filter(lubridate::year(predicting_date) == i_year) %>%
     dplyr::select(dplyr::all_of(pred_vars))
 
   # --- LASSO tuning on validation set ---
-  x_train <- train_lasso %>% dplyr::select(dplyr::all_of(pred_vars)) %>% as.matrix()
+  x_train <- train_lasso %>%
+    dplyr::select(dplyr::all_of(pred_vars)) %>%
+    as.matrix()
   y_train <- train_lasso$predicting_return
 
-  x_val <- val_lasso %>% dplyr::select(dplyr::all_of(pred_vars)) %>% as.matrix()
+  x_val <- val_lasso %>%
+    dplyr::select(dplyr::all_of(pred_vars)) %>%
+    as.matrix()
   y_val <- val_lasso$predicting_return
 
   for (j in seq_along(lambda_grid)) {
@@ -233,42 +264,51 @@ for (i_year in 2009:2024) {
   y_pred_test_lasso <- as.numeric(predict(m_lasso_best, newx = x_test_mat))
 
   # --- Decision tree tuning on validation set ---
-  # Fit separate trees on train_lasso for each cp, pick cp minimizing val MSE
+  # Note: drop predicting_date in the DATA, not the formula
+  train_lasso_tree <- train_lasso %>% dplyr::select(-predicting_date)
+  val_lasso_tree   <- val_lasso   %>% dplyr::select(-predicting_date)
+
   for (k in seq_along(cp_grid)) {
     tree_k <- rpart(
-      predicting_return ~ . - predicting_date,
-      data = train_lasso,
+      predicting_return ~ .,
+      data = train_lasso_tree,
       method = "anova",
       control = rpart.control(cp = cp_grid[k], minsplit = 20)
     )
-    y_pred_val_tree <- predict(tree_k, newdata = val_lasso)
+    y_pred_val_tree <- predict(tree_k, newdata = val_lasso_tree)
     cv_errors_tree[k] <- mean((y_val - y_pred_val_tree) ^ 2)
   }
 
   best_cp <- cp_grid[which.min(cv_errors_tree)]
 
-  # Refit tree on combined train+val with best_cp
-  trainval_tree <- dplyr::bind_rows(train_lasso, val_lasso)
+  # Refit tree on combined train+val with best_cp, still without predicting_date
+  trainval_tree <- dplyr::bind_rows(train_lasso, val_lasso) %>%
+    dplyr::select(-predicting_date)
 
   m_tree_best <- rpart(
-    predicting_return ~ . - predicting_date,
+    predicting_return ~ .,
     data = trainval_tree,
     method = "anova",
     control = rpart.control(cp = best_cp, minsplit = 20)
   )
 
+  # test_x already only has predictors (no predicting_date), so this is now consistent
   y_pred_test_tree <- predict(m_tree_best, newdata = test_x)
 
   # --- OLS benchmark on all data before i_year ---
+  # Also drop predicting_date in the DATA and use ~ .
+  train_ols_lm <- train_ols %>% dplyr::select(-predicting_date)
+
   m_ols <- lm(
-    predicting_return ~ . - predicting_date,
-    data = train_ols
+    predicting_return ~ .,
+    data = train_ols_lm
   )
 
-  y_pred_test_ols <- predict(
-    m_ols,
-    newdata = Total_data %>% dplyr::filter(lubridate::year(predicting_date) == i_year)
-  )
+  newdata_ols <- Total_model %>%
+    dplyr::filter(lubridate::year(predicting_date) == i_year) %>%
+    dplyr::select(-predicting_date)
+
+  y_pred_test_ols <- predict(m_ols, newdata = newdata_ols)
 
   # store in Testing_result
   Testing_result$fitted_return_LASSO[lubridate::year(Testing_result$predicting_date) == i_year] <- y_pred_test_lasso
@@ -278,8 +318,6 @@ for (i_year in 2009:2024) {
 
 head(Testing_result)
 ```
-
-Optionally, you can inspect an example fitted tree for a given year using `rpart.plot(m_tree_best)` inside the loop for a specific `i_year`.
 
 ---
 
@@ -413,4 +451,210 @@ avg_monthly <- Trading_Strategy %>%
 print(avg_monthly)
 ```
 
-This completes the R-side comparison of OLS, LASSO, and decision-tree investment decisions on the out-of-sample period 2009–2024.
+---
+
+## Python EZ PPO backtest via `src/eval.py` (through `ez_runner.py`)
+
+This chunk shows *how* to call the Python backtest once `ez_runner.py` is wired to `src/eval.backtest_deterministic`. It assumes:
+
+- `run_ez_eval(retrain = FALSE)` returns a list with two elements:  
+  - `train`: a list with `stats` and `paths`  
+  - `test`: a list with `stats` and `paths`  
+- each `paths` contains numeric vectors `wealth`, `cons`, and `actions` for that split
+
+```{r python-ez}
+# Make sure use_python(...) is set in the packages chunk
+# and ez_runner.py has been source_python()'d
+
+ez_eval <- run_ez_eval(retrain = FALSE)
+str(ez_eval)
+
+# first element = train, second element = test
+ez_test <- ez_eval[[2]]
+
+# wealth path from Python (includes initial wealth at index 1)
+ez_test_wealth <- as.numeric(ez_test$paths$wealth)
+
+# scale to start at 1, then drop the initial point so length = # of test months
+CR_EZ_full <- ez_test_wealth / ez_test_wealth[1]
+CR_EZ <- CR_EZ_full[-1]
+
+# Align with R-side TEST window
+
+# Attach sample_set to Trading_Strategy via date, then keep only "test"
+Trading_Strategy_test <- Trading_Strategy %>%
+  dplyr::left_join(
+    Total_data %>% dplyr::select(predicting_date, sample_set),
+    by = "predicting_date"
+  ) %>%
+  dplyr::filter(sample_set == "test") %>%
+  dplyr::arrange(predicting_date)
+
+# Sanity check lengths
+length(CR_EZ)
+nrow(Trading_Strategy_test)
+
+# If lengths differ slightly, trim to the min
+L <- min(length(CR_EZ), nrow(Trading_Strategy_test))
+
+CR_EZ <- CR_EZ[seq_len(L)]
+Trading_Strategy_test <- Trading_Strategy_test %>%
+  dplyr::slice(seq_len(L))
+
+# Re-base all cumulative return series to 1 at the start of TEST period
+rebase_to_one <- function(x) x / x[1]
+
+Trading_Strategy_test <- Trading_Strategy_test %>%
+  dplyr::mutate(
+    CR_OLS     = rebase_to_one(CR_OLS),
+    CR_LASSO   = rebase_to_one(CR_LASSO),
+    CR_Tree    = rebase_to_one(CR_Tree),
+    CR_BuyHold = rebase_to_one(CR_BuyHold)
+  )
+
+# Build LONG data: baseline strategies + EZ as its own rows
+
+# CR_BuyHold, CR_OLS, CR_LASSO, CR_Tree
+
+# Baseline R models + Buy & Hold
+Trading_long_base <- Trading_Strategy_test %>%
+  dplyr::select(predicting_date,
+                CR_BuyHold, CR_OLS, CR_LASSO, CR_Tree) %>%
+  tidyr::pivot_longer(
+    cols = -predicting_date,
+    names_to = "Strategy",
+    values_to = "CR"
+  )
+
+# EZ PPO series
+ez_df <- tibble::tibble(
+  predicting_date = Trading_Strategy_test$predicting_date,
+  Strategy        = "CR_EZ",
+  CR              = CR_EZ
+)
+
+# Combine
+Trading_long_EZ <- dplyr::bind_rows(Trading_long_base, ez_df)
+
+# Optional sanity check
+print(table(Trading_long_EZ$Strategy))
+
+ggplot(Trading_long_EZ,
+       aes(x = predicting_date, y = CR, color = Strategy)) +
+  geom_line(linewidth = 0.8) +
+  theme_minimal() +
+  labs(
+    title = "Cumulative returns on TEST split: OLS, LASSO, Tree, EZ PPO, and Buy & Hold",
+    x = "Date",
+    y = "Cumulative wealth (start = 1 on test window)"
+  ) +
+  theme(legend.position = "top")
+```
+
+```{r python-ez-zoom}
+# Make sure use_python(...) is set in the packages chunk
+# and ez_runner.py has been source_python()'d
+
+ez_eval <- run_ez_eval(retrain = FALSE)
+str(ez_eval)
+
+# first element = train, second element = test
+ez_test <- ez_eval[[2]]
+
+# wealth path from Python (includes initial wealth at index 1)
+ez_test_wealth <- as.numeric(ez_test$paths$wealth)
+
+ez_test_actions <- as.numeric(ez_test$paths$actions)
+
+tibble::tibble(
+  t = seq_along(ez_test_actions),
+  action = ez_test_actions
+) %>%
+  ggplot(aes(x = t, y = action)) +
+  geom_line() +
+  theme_minimal() +
+  labs(
+    title = "Deterministic actions over TEST split (EZ PPO)",
+    x = "Time (months in test window)",
+    y = "Action (c_t)"
+  )
+# Low consumption rate means everything else is invested.
+
+
+# scale to start at 1, then drop the initial point so length = # of test months
+CR_EZ_full <- ez_test_wealth / ez_test_wealth[1]
+CR_EZ <- CR_EZ_full[-1]
+
+# Align with R-side TEST window
+
+# Attach sample_set to Trading_Strategy via date, then keep only "test"
+Trading_Strategy_test <- Trading_Strategy %>%
+  dplyr::left_join(
+    Total_data %>% dplyr::select(predicting_date, sample_set),
+    by = "predicting_date"
+  ) %>%
+  dplyr::filter(sample_set == "test") %>%
+  dplyr::arrange(predicting_date)
+
+# Sanity check lengths
+length(CR_EZ)
+nrow(Trading_Strategy_test)
+
+# If lengths differ slightly, trim to the min
+L <- min(length(CR_EZ), nrow(Trading_Strategy_test))
+
+CR_EZ <- CR_EZ[seq_len(L)]
+Trading_Strategy_test <- Trading_Strategy_test %>%
+  dplyr::slice(seq_len(L))
+
+# Re-base all cumulative return series to 1 at the start of TEST period
+rebase_to_one <- function(x) x / x[1]
+
+Trading_Strategy_test <- Trading_Strategy_test %>%
+  dplyr::mutate(
+    CR_OLS     = rebase_to_one(CR_OLS),
+    CR_LASSO   = rebase_to_one(CR_LASSO),
+    CR_Tree    = rebase_to_one(CR_Tree),
+    CR_BuyHold = rebase_to_one(CR_BuyHold)
+  )
+
+# Build LONG data: baseline strategies + EZ as its own rows
+
+# CR_BuyHold, CR_OLS, CR_LASSO, CR_Tree
+
+# Baseline R models + Buy & Hold
+Trading_long_base <- Trading_Strategy_test %>%
+  dplyr::select(predicting_date,
+                CR_BuyHold) %>%
+  tidyr::pivot_longer(
+    cols = -predicting_date,
+    names_to = "Strategy",
+    values_to = "CR"
+  )
+
+# EZ PPO series
+ez_df <- tibble::tibble(
+  predicting_date = Trading_Strategy_test$predicting_date,
+  Strategy        = "CR_EZ",
+  CR              = CR_EZ
+)
+
+# Combine
+Trading_long_EZ <- dplyr::bind_rows(Trading_long_base, ez_df)
+
+# Optional sanity check
+print(table(Trading_long_EZ$Strategy))
+
+ggplot(Trading_long_EZ,
+       aes(x = predicting_date, y = CR, color = Strategy)) +
+  geom_line(linewidth = 0.8) +
+  theme_minimal() +
+  labs(
+    title = "Cumulative returns on TEST split: OLS, LASSO, Tree, EZ PPO, and Buy & Hold",
+    x = "Date",
+    y = "Cumulative wealth (start = 1 on test window)"
+  ) +
+  theme(legend.position = "top")
+```
+
+Key Discovery: My PPO model learned to "Buy and Hold" through 10 episodes. In other training paths, it fails to do so and never learns a better policy.
